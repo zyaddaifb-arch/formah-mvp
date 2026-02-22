@@ -2,14 +2,14 @@ import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { StyleSheet, Text, View } from "react-native";
 
-export default function ExploreScreen() {
+export default function ProfileScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
 
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.content}>
-        <Text style={[styles.text, { color: textColor }]}>Start Workout</Text>
+        <Text style={[styles.text, { color: textColor }]}>Profile Screen</Text>
         <Text style={[styles.subtext, { color: textColor }]}>
           Coming Soon...
         </Text>
