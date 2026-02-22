@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { WorkoutIndicator } from "@/components/workout/workout-indicator";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -11,82 +12,85 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          position: "absolute",
-          backgroundColor:
-            colorScheme === "dark"
-              ? "rgba(17, 24, 39, 0.9)"
-              : "rgba(255, 255, 255, 0.9)",
-          borderTopWidth: 1,
-          borderTopColor:
-            colorScheme === "dark"
-              ? "rgba(255, 255, 255, 0.05)"
-              : "rgba(0, 0, 0, 0.05)",
-          height: 80,
-          paddingBottom: 20,
-          paddingTop: 12,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: "History",
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabItem}>
-              <IconSymbol size={24} name="clock.fill" color={color} />
-              <Text style={[styles.tabLabel, { color }]}>History</Text>
-            </View>
-          ),
-          tabBarLabel: () => null,
+    <>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+          headerShown: false,
+          tabBarButton: HapticTab,
+          tabBarStyle: {
+            position: "absolute",
+            backgroundColor:
+              colorScheme === "dark"
+                ? "rgba(17, 24, 39, 0.9)"
+                : "rgba(255, 255, 255, 0.9)",
+            borderTopWidth: 1,
+            borderTopColor:
+              colorScheme === "dark"
+                ? "rgba(255, 255, 255, 0.05)"
+                : "rgba(0, 0, 0, 0.05)",
+            height: 80,
+            paddingBottom: 20,
+            paddingTop: 12,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <View style={styles.centerTabContainer}>
-              <View
-                style={[
-                  styles.centerTab,
-                  { backgroundColor: Colors[colorScheme ?? "light"].primary },
-                ]}
-              >
-                <Text style={styles.centerTabIcon}>+</Text>
+      >
+        <Tabs.Screen
+          name="explore"
+          options={{
+            title: "History",
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabItem}>
+                <IconSymbol size={24} name="clock.fill" color={color} />
+                <Text style={[styles.tabLabel, { color }]}>History</Text>
               </View>
-              <Text
-                style={[
-                  styles.centerTabLabel,
-                  { color: Colors[colorScheme ?? "light"].primary },
-                ]}
-              >
-                Start Workout
-              </Text>
-            </View>
-          ),
-          tabBarLabel: () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabItem}>
-              <IconSymbol size={24} name="person.fill" color={color} />
-              <Text style={[styles.tabLabel, { color }]}>Profile</Text>
-            </View>
-          ),
-          tabBarLabel: () => null,
-        }}
-      />
-    </Tabs>
+            ),
+            tabBarLabel: () => null,
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Home",
+            tabBarIcon: ({ color }) => (
+              <View style={styles.centerTabContainer}>
+                <View
+                  style={[
+                    styles.centerTab,
+                    { backgroundColor: Colors[colorScheme ?? "light"].primary },
+                  ]}
+                >
+                  <Text style={styles.centerTabIcon}>+</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.centerTabLabel,
+                    { color: Colors[colorScheme ?? "light"].primary },
+                  ]}
+                >
+                  Start Workout
+                </Text>
+              </View>
+            ),
+            tabBarLabel: () => null,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabItem}>
+                <IconSymbol size={24} name="person.fill" color={color} />
+                <Text style={[styles.tabLabel, { color }]}>Profile</Text>
+              </View>
+            ),
+            tabBarLabel: () => null,
+          }}
+        />
+      </Tabs>
+      <WorkoutIndicator />
+    </>
   );
 }
 

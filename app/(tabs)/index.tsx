@@ -1,20 +1,54 @@
 import { ThemedView } from "@/components/themed-view";
 import { ConsistencyCard } from "@/components/workout/consistency-card";
 import { TemplateCard } from "@/components/workout/template-card";
+import { useWorkout } from "@/contexts/workout-context";
 import { mockTemplates } from "@/data/mock-templates";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function HomeScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const primaryColor = useThemeColor({}, "primary");
+  const { startWorkout, isWorkoutActive, openWorkout, endWorkout } =
+    useWorkout();
+
+  const handleStartWorkout = () => {
+    if (isWorkoutActive) {
+      Alert.alert(
+        "Workout in Progress",
+        "You have a workout in progress. What would you like to do?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Resume Workout",
+            onPress: () => openWorkout(),
+          },
+          {
+            text: "Start New Workout",
+            style: "destructive",
+            onPress: () => {
+              endWorkout();
+              setTimeout(() => startWorkout(), 100);
+            },
+          },
+        ],
+        { cancelable: true },
+      );
+    } else {
+      startWorkout();
+    }
+  };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
@@ -55,6 +89,7 @@ export default function HomeScreen() {
               { backgroundColor: primaryColor },
             ]}
             activeOpacity={0.9}
+            onPress={handleStartWorkout}
           >
             <View style={styles.startWorkoutContent}>
               <View>
