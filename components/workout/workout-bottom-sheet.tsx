@@ -4,14 +4,18 @@ import type { Exercise } from "@/types/workout";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
 import { CompactTimer } from "./compact-timer";
 import { ExerciseLogItem } from "./exercise-log-item";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
@@ -90,7 +94,7 @@ export function WorkoutBottomSheet() {
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
     setSelectedExercises([]);
-    endWorkout();
+    endWorkout(); // This will also clear exerciseSets
   };
 
   const handleFinish = () => {
@@ -98,7 +102,7 @@ export function WorkoutBottomSheet() {
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
     setSelectedExercises([]);
-    endWorkout();
+    endWorkout(); // This will also clear exerciseSets
   };
 
   const handleMinimize = () => {
@@ -147,6 +151,42 @@ export function WorkoutBottomSheet() {
     });
   };
 
+  const renderExerciseItem = ({
+    item,
+    drag,
+    isActive,
+    getIndex,
+  }: RenderItemParams<Exercise>) => {
+    const index = getIndex();
+
+    const dragHandleComponent = (
+      <Pressable
+        onLongPress={drag}
+        disabled={isActive}
+        style={styles.inlineDragHandle}
+      >
+        <Ionicons name="reorder-three" size={20} color={tintColor} />
+      </Pressable>
+    );
+
+    return (
+      <ScaleDecorator>
+        <View
+          style={[
+            styles.exerciseItemWrapper,
+            isActive && styles.exerciseItemActive,
+          ]}
+        >
+          <ExerciseLogItem
+            exercise={item}
+            onRemove={() => handleRemoveExercise(index ?? 0)}
+            dragHandle={dragHandleComponent}
+          />
+        </View>
+      </ScaleDecorator>
+    );
+  };
+
   return (
     <Modal
       visible={isModalOpen}
@@ -184,93 +224,168 @@ export function WorkoutBottomSheet() {
           </Pressable>
         </View>
 
-        <ScrollView
-          style={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.workoutInfo}>
-            <View style={styles.titleRow}>
-              {isEditingName ? (
-                <TextInput
-                  style={[styles.titleInput, { color: textColor }]}
-                  value={workoutName}
-                  onChangeText={setWorkoutName}
-                  onBlur={() => setIsEditingName(false)}
-                  autoFocus
-                  selectTextOnFocus
-                />
-              ) : (
+        {selectedExercises.length === 0 ? (
+          <ScrollView
+            style={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.workoutInfo}>
+              <View style={styles.titleRow}>
+                {isEditingName ? (
+                  <TextInput
+                    style={[styles.titleInput, { color: textColor }]}
+                    value={workoutName}
+                    onChangeText={setWorkoutName}
+                    onBlur={() => setIsEditingName(false)}
+                    autoFocus
+                    selectTextOnFocus
+                  />
+                ) : (
+                  <Pressable
+                    onPress={() => setIsEditingName(true)}
+                    style={{ flex: 1 }}
+                  >
+                    <Text style={[styles.title, { color: textColor }]}>
+                      {workoutName}
+                    </Text>
+                  </Pressable>
+                )}
+
                 <Pressable
-                  onPress={() => setIsEditingName(true)}
-                  style={{ flex: 1 }}
+                  style={styles.menuButton}
+                  onPress={() => setShowWorkoutMenu(true)}
                 >
-                  <Text style={[styles.title, { color: textColor }]}>
-                    {workoutName}
-                  </Text>
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={20}
+                    color="#6b7280"
+                  />
                 </Pressable>
-              )}
-
-              <Pressable
-                style={styles.menuButton}
-                onPress={() => setShowWorkoutMenu(true)}
-              >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={20}
-                  color="#6b7280"
-                />
-              </Pressable>
-            </View>
-
-            <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
-                <Text style={styles.metaText}>{formatDate()}</Text>
               </View>
 
-              <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={16} color="#9ca3af" />
-                <Text style={styles.metaText}>{formatTime(elapsedTime)}</Text>
+              <View style={styles.metaRow}>
+                <View style={styles.metaItem}>
+                  <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
+                  <Text style={styles.metaText}>{formatDate()}</Text>
+                </View>
+
+                <View style={styles.metaItem}>
+                  <Ionicons name="time-outline" size={16} color="#9ca3af" />
+                  <Text style={styles.metaText}>{formatTime(elapsedTime)}</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <View style={styles.exerciseArea}>
-            {selectedExercises.length === 0 ? (
+            <View style={styles.exerciseArea}>
               <Text style={[styles.emptyText, { color: "#6b7280" }]}>
                 No exercises yet. Tap "Add Exercises" to get started.
               </Text>
-            ) : (
-              selectedExercises.map((exercise, index) => (
-                <ExerciseLogItem
-                  key={`${exercise.id}-${index}`}
-                  exercise={exercise}
-                  onRemove={() => handleRemoveExercise(index)}
-                />
-              ))
-            )}
-          </View>
+            </View>
 
-          <View style={styles.actionButtons}>
-            <Pressable
-              onPress={handleAddExercises}
-              style={[
-                styles.button,
-                styles.addButton,
-                { backgroundColor: tintColor },
-              ]}
-            >
-              <Text style={styles.addButtonText}>Add Exercises</Text>
-            </Pressable>
+            <View style={styles.actionButtons}>
+              <Pressable
+                onPress={handleAddExercises}
+                style={[
+                  styles.button,
+                  styles.addButton,
+                  { backgroundColor: tintColor },
+                ]}
+              >
+                <Text style={styles.addButtonText}>Add Exercises</Text>
+              </Pressable>
 
-            <Pressable
-              onPress={handleCancel}
-              style={[styles.button, styles.cancelButton]}
-            >
-              <Text style={styles.cancelButtonText}>Cancel Workout</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
+              <Pressable
+                onPress={handleCancel}
+                style={[styles.button, styles.cancelButton]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel Workout</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        ) : (
+          <DraggableFlatList
+            data={selectedExercises}
+            onDragEnd={({ data }) => setSelectedExercises(data)}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
+            renderItem={renderExerciseItem}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <View style={styles.workoutInfo}>
+                <View style={styles.titleRow}>
+                  {isEditingName ? (
+                    <TextInput
+                      style={[styles.titleInput, { color: textColor }]}
+                      value={workoutName}
+                      onChangeText={setWorkoutName}
+                      onBlur={() => setIsEditingName(false)}
+                      autoFocus
+                      selectTextOnFocus
+                    />
+                  ) : (
+                    <Pressable
+                      onPress={() => setIsEditingName(true)}
+                      style={{ flex: 1 }}
+                    >
+                      <Text style={[styles.title, { color: textColor }]}>
+                        {workoutName}
+                      </Text>
+                    </Pressable>
+                  )}
+
+                  <Pressable
+                    style={styles.menuButton}
+                    onPress={() => setShowWorkoutMenu(true)}
+                  >
+                    <Ionicons
+                      name="ellipsis-horizontal"
+                      size={20}
+                      color="#6b7280"
+                    />
+                  </Pressable>
+                </View>
+
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={16}
+                      color="#9ca3af"
+                    />
+                    <Text style={styles.metaText}>{formatDate()}</Text>
+                  </View>
+
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={16} color="#9ca3af" />
+                    <Text style={styles.metaText}>
+                      {formatTime(elapsedTime)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            }
+            ListFooterComponent={
+              <View style={styles.actionButtons}>
+                <Pressable
+                  onPress={handleAddExercises}
+                  style={[
+                    styles.button,
+                    styles.addButton,
+                    { backgroundColor: tintColor },
+                  ]}
+                >
+                  <Text style={styles.addButtonText}>Add Exercises</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleCancel}
+                  style={[styles.button, styles.cancelButton]}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel Workout</Text>
+                </Pressable>
+              </View>
+            }
+          />
+        )}
       </View>
 
       <ExerciseSelectionDialog
@@ -494,5 +609,24 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 15,
     fontWeight: "500",
+  },
+  exerciseItemWrapper: {
+    marginBottom: 12,
+  },
+  exerciseItemActive: {
+    opacity: 0.9,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  inlineDragHandle: {
+    padding: 4,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

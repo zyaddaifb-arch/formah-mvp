@@ -1,33 +1,44 @@
+import type { SetData } from "@/contexts/workout-context";
+import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { Exercise } from "@/types/workout";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 
 interface ExerciseLogItemProps {
   exercise: Exercise;
   onRemove: () => void;
+  dragHandle?: React.ReactNode;
 }
 
-interface SetData {
-  id: string;
-  weight: string;
-  reps: string;
-  completed: boolean;
-}
+export function ExerciseLogItem({
+  exercise,
+  onRemove,
+  dragHandle,
+}: ExerciseLogItemProps) {
+  const { exerciseSets, updateExerciseSets } = useWorkout();
 
-export function ExerciseLogItem({ exercise, onRemove }: ExerciseLogItemProps) {
-  const [sets, setSets] = useState<SetData[]>([
-    { id: "1", weight: "", reps: "", completed: false },
-  ]);
+  // Initialize sets from context or use default
+  const [sets, setSets] = useState<SetData[]>(() => {
+    const savedSets = exerciseSets[exercise.id];
+    return savedSets && savedSets.length > 0
+      ? savedSets
+      : [{ id: "1", weight: "", reps: "", completed: false }];
+  });
+
+  // Sync sets to context whenever they change
+  useEffect(() => {
+    updateExerciseSets(exercise.id, sets);
+  }, [sets, exercise.id]);
   const [showMenu, setShowMenu] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
 
@@ -91,32 +102,16 @@ export function ExerciseLogItem({ exercise, onRemove }: ExerciseLogItemProps) {
     );
   };
 
-  const toggleMetric = (metric: FocusMetric) => {
-    setSelectedMetrics((prev) =>
-      prev.includes(metric)
-        ? prev.filter((m) => m !== metric)
-        : [...prev, metric],
-    );
-  };
-
-  const metrics = [
-    { id: "totalVolume" as FocusMetric, label: "Total Volume", value: "N/A" },
-    {
-      id: "volumeIncrease" as FocusMetric,
-      label: "Volume Increase",
-      value: "-100%",
-    },
-    { id: "totalReps" as FocusMetric, label: "Total Reps", value: "N/A" },
-    { id: "weightPerRep" as FocusMetric, label: "Weight/Rep", value: "N/A" },
-  ];
-
   return (
     <View style={styles.container}>
       {/* Exercise Header */}
       <View style={styles.header}>
-        <Text style={[styles.exerciseName, { color: tintColor }]}>
-          {exercise.name}
-        </Text>
+        <View style={styles.exerciseNameRow}>
+          {dragHandle}
+          <Text style={[styles.exerciseName, { color: tintColor }]}>
+            {exercise.name}
+          </Text>
+        </View>
         <View style={styles.headerActions}>
           <Pressable
             style={styles.iconButton}
@@ -151,16 +146,38 @@ export function ExerciseLogItem({ exercise, onRemove }: ExerciseLogItemProps) {
             </Pressable>
           </View>
           <View style={styles.metricsGrid}>
-            {metrics.map((metric, index) => (
-              <View key={index} style={styles.metricCard}>
-                <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
-                  {metric.label}
-                </Text>
-                <Text style={[styles.metricValue, { color: textColor }]}>
-                  {metric.value}
-                </Text>
-              </View>
-            ))}
+            <View style={styles.metricCard}>
+              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
+                Total Volume
+              </Text>
+              <Text style={[styles.metricValue, { color: textColor }]}>
+                N/A
+              </Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
+                Volume Increase
+              </Text>
+              <Text style={[styles.metricValue, { color: textColor }]}>
+                -100%
+              </Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
+                Total Reps
+              </Text>
+              <Text style={[styles.metricValue, { color: textColor }]}>
+                N/A
+              </Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
+                Weight/Rep
+              </Text>
+              <Text style={[styles.metricValue, { color: textColor }]}>
+                N/A
+              </Text>
+            </View>
           </View>
         </View>
       )}
@@ -408,6 +425,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
     paddingHorizontal: 16,
+  },
+  exerciseNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
   },
   exerciseName: {
     fontSize: 18,

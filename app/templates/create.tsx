@@ -6,14 +6,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
 
 export default function CreateTemplateScreen() {
   const [templateName, setTemplateName] = useState("");
@@ -57,6 +61,68 @@ export default function CreateTemplateScreen() {
   };
 
   const canSave = templateName.trim() && selectedExercises.length > 0;
+
+  const renderExerciseItem = ({
+    item,
+    drag,
+    isActive,
+    getIndex,
+  }: RenderItemParams<Exercise>) => {
+    const index = getIndex();
+
+    return (
+      <ScaleDecorator>
+        <View
+          style={[
+            styles.exerciseItem,
+            { backgroundColor: cardBackground },
+            isActive && styles.exerciseItemActive,
+          ]}
+        >
+          {/* Drag Handle - 3 Lines Icon */}
+          <Pressable
+            onLongPress={drag}
+            disabled={isActive}
+            style={styles.dragHandle}
+          >
+            <Ionicons name="reorder-three" size={28} color={textColor} />
+          </Pressable>
+
+          {/* Exercise Number */}
+          <View style={styles.exerciseNumber}>
+            <Text style={[styles.exerciseNumberText, { color: textColor }]}>
+              {(index ?? 0) + 1}
+            </Text>
+          </View>
+
+          {/* Exercise Info - Collapsed when dragging */}
+          <View style={styles.exerciseInfo}>
+            <Text
+              style={[styles.exerciseName, { color: textColor }]}
+              numberOfLines={isActive ? 1 : 2}
+            >
+              {item.name}
+            </Text>
+            {!isActive && (
+              <View style={styles.exerciseMeta}>
+                <Text style={styles.exerciseMetaText}>{item.bodyPart}</Text>
+                <Text style={styles.exerciseMetaDot}>•</Text>
+                <Text style={styles.exerciseMetaText}>{item.equipment}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Remove Button */}
+          <Pressable
+            onPress={() => handleRemoveExercise(item.id)}
+            style={styles.removeButton}
+          >
+            <Ionicons name="close-circle" size={24} color="#ef4444" />
+          </Pressable>
+        </View>
+      </ScaleDecorator>
+    );
+  };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
@@ -133,47 +199,14 @@ export default function CreateTemplateScreen() {
               </Text>
             </Pressable>
           ) : (
-            <View style={styles.exercisesList}>
-              {selectedExercises.map((exercise, index) => (
-                <View
-                  key={exercise.id}
-                  style={[
-                    styles.exerciseItem,
-                    { backgroundColor: cardBackground },
-                  ]}
-                >
-                  <View style={styles.exerciseNumber}>
-                    <Text
-                      style={[styles.exerciseNumberText, { color: textColor }]}
-                    >
-                      {index + 1}
-                    </Text>
-                  </View>
-
-                  <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: textColor }]}>
-                      {exercise.name}
-                    </Text>
-                    <View style={styles.exerciseMeta}>
-                      <Text style={styles.exerciseMetaText}>
-                        {exercise.bodyPart}
-                      </Text>
-                      <Text style={styles.exerciseMetaDot}>•</Text>
-                      <Text style={styles.exerciseMetaText}>
-                        {exercise.equipment}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Pressable
-                    onPress={() => handleRemoveExercise(exercise.id)}
-                    style={styles.removeButton}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#ef4444" />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
+            <DraggableFlatList
+              data={selectedExercises}
+              onDragEnd={({ data }) => setSelectedExercises(data)}
+              keyExtractor={(item) => item.id}
+              renderItem={renderExerciseItem}
+              scrollEnabled={false}
+              containerStyle={styles.exercisesList}
+            />
           )}
         </View>
       </ScrollView>
@@ -277,6 +310,24 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     gap: 12,
+    marginBottom: 12,
+  },
+  exerciseItemActive: {
+    opacity: 0.9,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  dragHandle: {
+    padding: 8,
+    marginRight: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
   exerciseNumber: {
     width: 32,
