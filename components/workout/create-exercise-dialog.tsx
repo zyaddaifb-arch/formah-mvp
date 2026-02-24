@@ -1,15 +1,15 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { Exercise } from "@/types/workout";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 interface CreateExerciseDialogProps {
@@ -29,6 +29,13 @@ export function CreateExerciseDialog({
   const [selectedBodyPart, setSelectedBodyPart] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+
+  // Update name when initialName changes (when dialog opens with search term)
+  useEffect(() => {
+    if (visible && initialName) {
+      setName(initialName);
+    }
+  }, [visible, initialName]);
 
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -65,7 +72,7 @@ export function CreateExerciseDialog({
   ];
 
   const handleSave = () => {
-    if (!name.trim() || !selectedBodyPart || !selectedCategory) {
+    if (!name.trim() || !selectedBodyPart) {
       return;
     }
 
@@ -73,7 +80,7 @@ export function CreateExerciseDialog({
       id: `custom-${Date.now()}`,
       name: name.trim(),
       bodyPart: selectedBodyPart,
-      equipment: selectedCategory,
+      equipment: selectedCategory || "Other",
     };
 
     onSave(newExercise);
@@ -87,7 +94,7 @@ export function CreateExerciseDialog({
     onClose();
   };
 
-  const canSave = name.trim() && selectedBodyPart && selectedCategory;
+  const canSave = name.trim() && selectedBodyPart;
 
   // If category picker is showing, show that instead
   if (showCategoryPicker) {
@@ -230,10 +237,13 @@ export function CreateExerciseDialog({
               </View>
             </View>
 
-            {/* Category Selection */}
+            {/* Category Selection (Optional) */}
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>
-                Category
+                Category{" "}
+                <Text style={[styles.optionalText, { color: "#6b7280" }]}>
+                  (Optional)
+                </Text>
               </Text>
               <Pressable
                 style={[
@@ -313,6 +323,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  optionalText: {
+    fontSize: 14,
+    fontWeight: "400",
   },
   nameInput: {
     paddingHorizontal: 16,
