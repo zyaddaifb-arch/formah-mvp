@@ -111,7 +111,10 @@ export default function HomeScreen() {
             <Text style={[styles.templatesTitle, { color: textColor }]}>
               TEMPLATES
             </Text>
-            <TouchableOpacity style={styles.createButton}>
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => router.push("/templates/create")}
+            >
               <Text style={[styles.createButtonText, { color: primaryColor }]}>
                 + Create New
               </Text>

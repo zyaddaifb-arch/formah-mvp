@@ -1,21 +1,26 @@
 import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import type { Exercise } from "@/types/workout";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
+import { ExerciseLogItem } from "./exercise-log-item";
+import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
 
 export function WorkoutBottomSheet() {
   const [workoutName, setWorkoutName] = useState("Quick Workout");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
+  const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
 
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -55,6 +60,7 @@ export function WorkoutBottomSheet() {
     setElapsedTime(0);
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
+    setSelectedExercises([]);
     endWorkout();
   };
 
@@ -62,6 +68,7 @@ export function WorkoutBottomSheet() {
     setElapsedTime(0);
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
+    setSelectedExercises([]);
     endWorkout();
   };
 
@@ -70,7 +77,16 @@ export function WorkoutBottomSheet() {
   };
 
   const handleAddExercises = () => {
-    // TODO: Navigate to exercise selection
+    setIsExerciseDialogOpen(true);
+  };
+
+  const handleSelectExercises = (exercises: Exercise[]) => {
+    setSelectedExercises((prev) => [...prev, ...exercises]);
+    setIsExerciseDialogOpen(false);
+  };
+
+  const handleRemoveExercise = (index: number) => {
+    setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -145,9 +161,19 @@ export function WorkoutBottomSheet() {
           </View>
 
           <View style={styles.exerciseArea}>
-            <Text style={[styles.emptyText, { color: "#6b7280" }]}>
-              No exercises yet. Tap "Add Exercises" to get started.
-            </Text>
+            {selectedExercises.length === 0 ? (
+              <Text style={[styles.emptyText, { color: "#6b7280" }]}>
+                No exercises yet. Tap "Add Exercises" to get started.
+              </Text>
+            ) : (
+              selectedExercises.map((exercise, index) => (
+                <ExerciseLogItem
+                  key={`${exercise.id}-${index}`}
+                  exercise={exercise}
+                  onRemove={() => handleRemoveExercise(index)}
+                />
+              ))
+            )}
           </View>
 
           <View style={styles.actionButtons}>
@@ -171,6 +197,12 @@ export function WorkoutBottomSheet() {
           </View>
         </ScrollView>
       </View>
+
+      <ExerciseSelectionDialog
+        visible={isExerciseDialogOpen}
+        onClose={() => setIsExerciseDialogOpen(false)}
+        onSelectExercises={handleSelectExercises}
+      />
     </Modal>
   );
 }
@@ -247,13 +279,12 @@ const styles = StyleSheet.create({
   },
   exerciseArea: {
     flex: 1,
-    minHeight: 300,
-    justifyContent: "center",
-    alignItems: "center",
+    paddingVertical: 8,
   },
   emptyText: {
     fontSize: 14,
     textAlign: "center",
+    marginTop: 100,
   },
   actionButtons: {
     paddingVertical: 20,

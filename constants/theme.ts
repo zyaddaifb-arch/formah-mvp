@@ -13,6 +13,7 @@ export const Colors = {
     primary: "#3b82f6",
     secondaryText: "#6b7280",
     border: "rgba(0, 0, 0, 0.05)",
+    cardBackground: "#e5e7eb",
   },
   dark: {
     text: "#ffffff",
@@ -25,5 +26,6 @@ export const Colors = {
     primary: "#3b82f6",
     secondaryText: "#9ca3af",
     border: "rgba(255, 255, 255, 0.05)",
+    cardBackground: "#1f2937",
   },
 };
