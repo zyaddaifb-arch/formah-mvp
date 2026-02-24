@@ -2,9 +2,11 @@ import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { Exercise } from "@/types/workout";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +31,8 @@ export function WorkoutBottomSheet() {
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const [showWorkoutMenu, setShowWorkoutMenu] = useState(false);
   const [showRestTimer, setShowRestTimer] = useState(false);
+  const [showHeaderTimer, setShowHeaderTimer] = useState(false);
+  const scrollYRef = useRef(0);
   const [restTimerData, setRestTimerData] = useState<{
     remainingTime: number;
     totalDuration: number;
@@ -151,6 +155,17 @@ export function WorkoutBottomSheet() {
     });
   };
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    scrollYRef.current = scrollY;
+    console.log("Scroll Y:", scrollY, "Show Timer:", scrollY > 100);
+    // Show header timer when scrolled past 100px
+    const shouldShow = scrollY > 100;
+    if (shouldShow !== showHeaderTimer) {
+      setShowHeaderTimer(shouldShow);
+    }
+  };
+
   const renderExerciseItem = ({
     item,
     drag,
@@ -197,37 +212,56 @@ export function WorkoutBottomSheet() {
       <View style={[styles.container, { backgroundColor }]}>
         {/* Header */}
         <View style={styles.header}>
-          {restTimerData ? (
-            <CompactTimer
-              remainingTime={restTimerData.remainingTime}
-              totalDuration={restTimerData.totalDuration}
-              onPress={handleCompactTimerPress}
-            />
-          ) : (
-            <Pressable
-              onPress={() => setShowRestTimer(true)}
-              style={styles.headerButton}
-            >
-              <Ionicons name="timer-outline" size={24} color={textColor} />
+          {/* Left Side: Back Arrow + Workout Timer */}
+          <View style={styles.headerLeft}>
+            <Pressable onPress={handleMinimize} style={styles.headerButton}>
+              <Ionicons name="chevron-down" size={28} color={textColor} />
             </Pressable>
-          )}
+            {showHeaderTimer && (
+              <View style={styles.workoutTimerContainer}>
+                <Ionicons name="time-outline" size={16} color="#9ca3af" />
+                <Text style={styles.workoutTimerText}>
+                  {formatTime(elapsedTime)}
+                </Text>
+              </View>
+            )}
+          </View>
 
-          <Pressable onPress={handleMinimize} style={styles.headerButton}>
-            <Ionicons name="chevron-down" size={28} color={textColor} />
-          </Pressable>
+          {/* Right Side: Timer + Finish Button */}
+          <View style={styles.headerRight}>
+            {restTimerData ? (
+              <CompactTimer
+                remainingTime={restTimerData.remainingTime}
+                totalDuration={restTimerData.totalDuration}
+                onPress={handleCompactTimerPress}
+              />
+            ) : (
+              <Pressable
+                onPress={() => setShowRestTimer(true)}
+                style={styles.headerButton}
+              >
+                <Ionicons name="timer-outline" size={24} color={textColor} />
+              </Pressable>
+            )}
 
-          <Pressable
-            onPress={handleFinish}
-            style={[styles.finishButton, { backgroundColor: "#10b981" }]}
-          >
-            <Text style={styles.finishButtonText}>Finish</Text>
-          </Pressable>
+            <Pressable
+              onPress={handleFinish}
+              style={[styles.finishButton, { backgroundColor: "#10b981" }]}
+            >
+              <Text style={styles.finishButtonText}>Finish</Text>
+            </Pressable>
+          </View>
         </View>
 
         {selectedExercises.length === 0 ? (
           <ScrollView
             style={styles.contentContainer}
             showsVerticalScrollIndicator={false}
+            onScroll={(e) => {
+              const scrollY = e.nativeEvent.contentOffset.y;
+              setShowHeaderTimer(scrollY > 100);
+            }}
+            scrollEventThrottle={16}
           >
             <View style={styles.workoutInfo}>
               <View style={styles.titleRow}>
@@ -309,6 +343,19 @@ export function WorkoutBottomSheet() {
             keyExtractor={(item, index) => `${item.id}-${index}`}
             renderItem={renderExerciseItem}
             showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={(e) => {
+              const scrollY = e.nativeEvent.contentOffset.y;
+              setShowHeaderTimer(scrollY > 100);
+            }}
+            onMomentumScrollEnd={(e) => {
+              const scrollY = e.nativeEvent.contentOffset.y;
+              setShowHeaderTimer(scrollY > 100);
+            }}
+            onScroll={(e) => {
+              const scrollY = e.nativeEvent.contentOffset.y;
+              setShowHeaderTimer(scrollY > 100);
+            }}
+            scrollEventThrottle={16}
             ListHeaderComponent={
               <View style={styles.workoutInfo}>
                 <View style={styles.titleRow}>
@@ -484,6 +531,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  workoutTimerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  workoutTimerText: {
+    fontSize: 14,
+    color: "#9ca3af",
+    fontWeight: "500",
   },
   headerButton: {
     width: 44,

@@ -5,12 +5,12 @@ import { useWorkout } from "@/contexts/workout-context";
 import { mockTemplates } from "@/data/mock-templates";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function HomeScreen() {
