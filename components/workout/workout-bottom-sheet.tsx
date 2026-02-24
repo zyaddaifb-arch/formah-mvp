@@ -12,8 +12,10 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { CompactTimer } from "./compact-timer";
 import { ExerciseLogItem } from "./exercise-log-item";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
+import { RestTimerModal } from "./rest-timer-modal";
 
 export function WorkoutBottomSheet() {
   const [workoutName, setWorkoutName] = useState("Quick Workout");
@@ -22,6 +24,12 @@ export function WorkoutBottomSheet() {
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const [showWorkoutMenu, setShowWorkoutMenu] = useState(false);
+  const [showRestTimer, setShowRestTimer] = useState(false);
+  const [restTimerData, setRestTimerData] = useState<{
+    remainingTime: number;
+    totalDuration: number;
+    isRunning: boolean;
+  } | null>(null);
 
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -43,6 +51,25 @@ export function WorkoutBottomSheet() {
 
     return () => clearInterval(interval);
   }, [isWorkoutActive]);
+
+  // Rest Timer
+  useEffect(() => {
+    if (!restTimerData?.isRunning || restTimerData.remainingTime <= 0) return;
+
+    const interval = setInterval(() => {
+      setRestTimerData((prev) => {
+        if (!prev || prev.remainingTime <= 1) {
+          return null;
+        }
+        return {
+          ...prev,
+          remainingTime: prev.remainingTime - 1,
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [restTimerData?.isRunning, restTimerData?.remainingTime]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -91,6 +118,35 @@ export function WorkoutBottomSheet() {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleTimerMinimize = (
+    remainingTime: number,
+    totalDuration: number,
+  ) => {
+    setRestTimerData({ remainingTime, totalDuration, isRunning: true });
+    setShowRestTimer(false);
+  };
+
+  const handleCompactTimerPress = () => {
+    setShowRestTimer(true);
+  };
+
+  const handleRestTimerClose = () => {
+    setShowRestTimer(false);
+    setRestTimerData(null);
+  };
+
+  const handleTimerComplete = () => {
+    setRestTimerData(null);
+  };
+
+  const handleTimerUpdate = (remainingTime: number, totalDuration: number) => {
+    setRestTimerData({
+      remainingTime,
+      totalDuration,
+      isRunning: true,
+    });
+  };
+
   return (
     <Modal
       visible={isModalOpen}
@@ -101,9 +157,20 @@ export function WorkoutBottomSheet() {
       <View style={[styles.container, { backgroundColor }]}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={handleCancel} style={styles.headerButton}>
-            <Ionicons name="power" size={24} color={textColor} />
-          </Pressable>
+          {restTimerData ? (
+            <CompactTimer
+              remainingTime={restTimerData.remainingTime}
+              totalDuration={restTimerData.totalDuration}
+              onPress={handleCompactTimerPress}
+            />
+          ) : (
+            <Pressable
+              onPress={() => setShowRestTimer(true)}
+              style={styles.headerButton}
+            >
+              <Ionicons name="timer-outline" size={24} color={textColor} />
+            </Pressable>
+          )}
 
           <Pressable onPress={handleMinimize} style={styles.headerButton}>
             <Ionicons name="chevron-down" size={28} color={textColor} />
@@ -210,6 +277,16 @@ export function WorkoutBottomSheet() {
         visible={isExerciseDialogOpen}
         onClose={() => setIsExerciseDialogOpen(false)}
         onSelectExercises={handleSelectExercises}
+      />
+
+      <RestTimerModal
+        visible={showRestTimer}
+        onClose={handleRestTimerClose}
+        onMinimize={handleTimerMinimize}
+        onTimerUpdate={handleTimerUpdate}
+        initialRemainingTime={restTimerData?.remainingTime}
+        initialTotalDuration={restTimerData?.totalDuration}
+        onTimerComplete={handleTimerComplete}
       />
 
       {/* Workout Menu Modal */}
