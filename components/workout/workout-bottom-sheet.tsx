@@ -46,6 +46,18 @@ export function WorkoutBottomSheet() {
 
   const { isWorkoutActive, isModalOpen, endWorkout, closeModal } = useWorkout();
 
+  // Reset selected exercises when workout is ended
+  useEffect(() => {
+    if (!isWorkoutActive) {
+      // Clear exercises when workout is ended
+      setSelectedExercises([]);
+      setWorkoutName("Quick Workout");
+      setIsEditingName(false);
+      setRestTimerData(null);
+      setShowRestTimer(false);
+    }
+  }, [isWorkoutActive]);
+
   // Timer
   useEffect(() => {
     if (!isWorkoutActive) {
@@ -94,22 +106,29 @@ export function WorkoutBottomSheet() {
   };
 
   const handleCancel = () => {
+    // Reset everything when canceling workout
     setElapsedTime(0);
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
     setSelectedExercises([]);
+    setRestTimerData(null);
+    setShowRestTimer(false);
     endWorkout(); // This will also clear exerciseSets
   };
 
   const handleFinish = () => {
+    // Reset everything when finishing workout
     setElapsedTime(0);
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
     setSelectedExercises([]);
+    setRestTimerData(null);
+    setShowRestTimer(false);
     endWorkout(); // This will also clear exerciseSets
   };
 
   const handleMinimize = () => {
+    setIsExerciseDialogOpen(false);
     closeModal();
   };
 
@@ -256,6 +275,7 @@ export function WorkoutBottomSheet() {
         {selectedExercises.length === 0 ? (
           <ScrollView
             style={styles.contentContainer}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             onScroll={(e) => {
               const scrollY = e.nativeEvent.contentOffset.y;
@@ -343,6 +363,7 @@ export function WorkoutBottomSheet() {
             keyExtractor={(item, index) => `${item.id}-${index}`}
             renderItem={renderExerciseItem}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
             onScrollBeginDrag={(e) => {
               const scrollY = e.nativeEvent.contentOffset.y;
               setShowHeaderTimer(scrollY > 100);
@@ -570,6 +591,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   workoutInfo: {
     paddingBottom: 24,
