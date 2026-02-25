@@ -4,6 +4,7 @@ import { TemplateCard } from "@/components/workout/template-card";
 import { useWorkout } from "@/contexts/workout-context";
 import { mockTemplates } from "@/data/mock-templates";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useState } from "react";
 import {
     Alert,
     ScrollView,
@@ -19,6 +20,10 @@ export default function HomeScreen() {
   const primaryColor = useThemeColor({}, "primary");
   const { startWorkout, isWorkoutActive, openWorkout, endWorkout } =
     useWorkout();
+
+  const [isMyTemplatesExpanded, setIsMyTemplatesExpanded] = useState(true);
+  const [isExampleTemplatesExpanded, setIsExampleTemplatesExpanded] =
+    useState(true);
 
   const handleStartWorkout = () => {
     if (isWorkoutActive) {
@@ -57,23 +62,10 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={[styles.welcomeText, { color: primaryColor }]}>
-              WELCOME BACK
-            </Text>
-            <Text style={[styles.greetingText, { color: textColor }]}>
-              GOOD{"\n"}MORNING
-            </Text>
-          </View>
-          <View style={styles.profileContainer}>
-            <View style={[styles.profileBorder, { borderColor: primaryColor }]}>
-              <View style={styles.profileImage} />
-            </View>
-            <View
-              style={[styles.statusDot, { backgroundColor: primaryColor }]}
-            />
-          </View>
+        <View style={styles.headerSection}>
+          <Text style={[styles.headerTitle, { color: textColor }]}>
+            START WORKOUT
+          </Text>
         </View>
 
         {/* Consistency Card */}
@@ -83,6 +75,9 @@ export default function HomeScreen() {
 
         {/* Start Empty Workout Button */}
         <View style={styles.startWorkoutSection}>
+          <Text style={[styles.sectionSubheadline, { color: textColor }]}>
+            QUICK START
+          </Text>
           <TouchableOpacity
             style={[
               styles.startWorkoutButton,
@@ -106,27 +101,117 @@ export default function HomeScreen() {
         </View>
 
         {/* Templates Section */}
-        <View style={styles.templatesSection}>
-          <View style={styles.templatesSectionHeader}>
-            <Text style={[styles.templatesTitle, { color: textColor }]}>
+        <View style={styles.templatesMainSection}>
+          {/* Templates Header with Actions */}
+          <View style={styles.templatesMainHeader}>
+            <Text style={[styles.templatesMainTitle, { color: textColor }]}>
               TEMPLATES
             </Text>
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => router.push("/templates/create")}
-            >
-              <Text style={[styles.createButtonText, { color: primaryColor }]}>
-                + Create New
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.templatesActions}>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text style={[styles.iconButtonText, { color: textColor }]}>
+                  +
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text style={[styles.iconButtonText, { color: textColor }]}>
+                  📁
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text style={[styles.iconButtonText, { color: textColor }]}>
+                  ...
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.templatesGrid}>
-            {mockTemplates.map((template) => (
-              <View key={template.id} style={styles.templateCardWrapper}>
-                <TemplateCard template={template} />
+          {/* My Templates Section */}
+          <View style={styles.templatesSubSection}>
+            <TouchableOpacity
+              style={styles.subSectionHeader}
+              onPress={() => setIsMyTemplatesExpanded(!isMyTemplatesExpanded)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.subSectionLeft}>
+                <Text style={[styles.subSectionTitle, { color: textColor }]}>
+                  MY TEMPLATES
+                </Text>
+                <Text
+                  style={[
+                    styles.templateCount,
+                    { color: textColor, opacity: 0.5 },
+                  ]}
+                >
+                  ({mockTemplates.length})
+                </Text>
               </View>
-            ))}
+              <View style={styles.subSectionRight}>
+                <TouchableOpacity style={styles.iconButton}>
+                  <Text style={[styles.iconButtonText, { color: textColor }]}>
+                    ...
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.collapseIcon, { color: textColor }]}>
+                  {isMyTemplatesExpanded ? "−" : "+"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {isMyTemplatesExpanded && (
+              <View style={styles.templatesGrid}>
+                {mockTemplates.map((template) => (
+                  <View key={template.id} style={styles.templateCardWrapper}>
+                    <TemplateCard template={template} />
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Example Templates Section */}
+          <View style={styles.templatesSubSection}>
+            <TouchableOpacity
+              style={styles.subSectionHeader}
+              onPress={() =>
+                setIsExampleTemplatesExpanded(!isExampleTemplatesExpanded)
+              }
+              activeOpacity={0.7}
+            >
+              <View style={styles.subSectionLeft}>
+                <Text style={[styles.subSectionTitle, { color: textColor }]}>
+                  EXAMPLE TEMPLATES
+                </Text>
+                <Text
+                  style={[
+                    styles.templateCount,
+                    { color: textColor, opacity: 0.5 },
+                  ]}
+                >
+                  ({mockTemplates.slice(0, 2).length})
+                </Text>
+              </View>
+              <View style={styles.subSectionRight}>
+                <TouchableOpacity style={styles.iconButton}>
+                  <Text style={[styles.iconButtonText, { color: textColor }]}>
+                    ...
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.collapseIcon, { color: textColor }]}>
+                  {isExampleTemplatesExpanded ? "−" : "+"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {isExampleTemplatesExpanded && (
+              <View style={styles.templatesGrid}>
+                {mockTemplates.slice(0, 2).map((template) => (
+                  <View key={template.id} style={styles.templateCardWrapper}>
+                    <TemplateCard template={template} />
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
@@ -144,54 +229,15 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+  headerSection: {
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 60,
     paddingBottom: 16,
   },
-  headerText: {
-    flex: 1,
-  },
-  welcomeText: {
-    fontSize: 12,
-    fontWeight: "500",
-    letterSpacing: 1.5,
-    marginBottom: 4,
-  },
-  greetingText: {
-    fontSize: 30,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: "800",
-    lineHeight: 36,
-    letterSpacing: -0.5,
-  },
-  profileContainer: {
-    position: "relative",
-  },
-  profileBorder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    padding: 2,
-  },
-  profileImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
-    backgroundColor: "#6b7280",
-  },
-  statusDot: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: "#111827",
+    letterSpacing: 0.5,
   },
   consistencySection: {
     paddingHorizontal: 24,
@@ -200,6 +246,13 @@ const styles = StyleSheet.create({
   startWorkoutSection: {
     paddingHorizontal: 24,
     marginTop: 24,
+  },
+  sectionSubheadline: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 1,
+    marginBottom: 12,
+    opacity: 0.6,
   },
   startWorkoutButton: {
     borderRadius: 16,
@@ -235,6 +288,64 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
   },
+  templatesMainSection: {
+    paddingHorizontal: 24,
+    marginTop: 32,
+  },
+  templatesMainHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  templatesMainTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  templatesActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  templatesSubSection: {
+    marginBottom: 24,
+  },
+  subSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  subSectionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  subSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  templateCount: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  subSectionRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   templatesSection: {
     paddingHorizontal: 24,
     marginTop: 32,
@@ -244,6 +355,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  collapseIcon: {
+    fontSize: 24,
+    fontWeight: "700",
   },
   templatesTitle: {
     fontSize: 18,
@@ -268,6 +387,6 @@ const styles = StyleSheet.create({
     width: "48%",
   },
   bottomSpacing: {
-    height: 100,
+    height: 24,
   },
 });
