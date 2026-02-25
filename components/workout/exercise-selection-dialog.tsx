@@ -178,30 +178,29 @@ export function ExerciseSelectionDialog({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.dialogContainer, { backgroundColor }]}>
+      <Pressable style={styles.overlay} onPress={handleClose}>
+        <View
+          style={[styles.dialogContainer, { backgroundColor }]}
+          onStartShouldSetResponder={() => true}
+        >
           {/* Header */}
           <View style={styles.header}>
-            <Pressable onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: tintColor }]}>
-              {singleSelect
-                ? "Replace Exercise"
-                : selectedExercises.length > 0
-                  ? `${selectedExercises.length} Selected`
-                  : "New"}
-            </Text>
+            <View style={styles.headerLeft}>
+              <Pressable onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="close" size={28} color={textColor} />
+              </Pressable>
+              {!singleSelect && (
+                <Pressable onPress={() => setShowCreateDialog(true)}>
+                  <Text style={[styles.headerAction, { color: textColor }]}>
+                    New
+                  </Text>
+                </Pressable>
+              )}
+            </View>
 
             <View style={styles.headerActions}>
               {!singleSelect && (
                 <>
-                  <Pressable onPress={() => setShowCreateDialog(true)}>
-                    <Text style={[styles.headerAction, { color: tintColor }]}>
-                      New
-                    </Text>
-                  </Pressable>
                   <Pressable onPress={handleAddExercises}>
                     <Text
                       style={[
@@ -217,6 +216,11 @@ export function ExerciseSelectionDialog({
                       Add
                     </Text>
                   </Pressable>
+                  {selectedExercises.length > 1 && (
+                    <Text style={[styles.headerCount, { color: textColor }]}>
+                      ({selectedExercises.length})
+                    </Text>
+                  )}
                 </>
               )}
             </View>
@@ -240,11 +244,7 @@ export function ExerciseSelectionDialog({
 
           {/* Filters */}
           <View style={styles.filtersContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filtersContent}
-            >
+            <View style={styles.filtersContent}>
               <Pressable
                 style={[
                   styles.filterButton,
@@ -252,7 +252,10 @@ export function ExerciseSelectionDialog({
                 ]}
                 onPress={() => setShowBodyPartPicker(true)}
               >
-                <Text style={[styles.filterButtonText, { color: textColor }]}>
+                <Text
+                  style={[styles.filterButtonText, { color: textColor }]}
+                  numberOfLines={1}
+                >
                   {selectedBodyPart}
                 </Text>
               </Pressable>
@@ -264,7 +267,10 @@ export function ExerciseSelectionDialog({
                 ]}
                 onPress={() => setShowCategoryPicker(true)}
               >
-                <Text style={[styles.filterButtonText, { color: textColor }]}>
+                <Text
+                  style={[styles.filterButtonText, { color: textColor }]}
+                  numberOfLines={1}
+                >
                   {selectedCategory}
                 </Text>
               </Pressable>
@@ -275,7 +281,7 @@ export function ExerciseSelectionDialog({
               >
                 <Ionicons name="swap-vertical" size={20} color="#fff" />
               </Pressable>
-            </ScrollView>
+            </View>
           </View>
 
           {/* Exercise List */}
@@ -306,27 +312,17 @@ export function ExerciseSelectionDialog({
                     key={exercise.id}
                     style={[
                       styles.exerciseItem,
-                      { backgroundColor: cardBackground },
+                      { backgroundColor },
                       isSelected && {
-                        borderWidth: 2,
-                        borderColor: tintColor,
+                        backgroundColor: "rgba(59, 130, 246, 0.15)",
                       },
                     ]}
                     onPress={() => handleSelectExercise(exercise)}
                   >
-                    <View
-                      style={[
-                        styles.exerciseIcon,
-                        isSelected && { backgroundColor: tintColor },
-                      ]}
-                    >
-                      {isSelected ? (
-                        <Ionicons name="checkmark" size={24} color="#fff" />
-                      ) : (
-                        <Text style={styles.exerciseIconText}>
-                          {exercise.name.charAt(0)}
-                        </Text>
-                      )}
+                    <View style={styles.exerciseIcon}>
+                      <Text style={styles.exerciseIconText}>
+                        {exercise.name.charAt(0)}
+                      </Text>
                     </View>
 
                     <View style={styles.exerciseInfo}>
@@ -344,23 +340,27 @@ export function ExerciseSelectionDialog({
                       </View>
                     </View>
 
-                    <Pressable
-                      style={styles.infoButton}
-                      onPress={() => setSelectedExerciseForDetails(exercise)}
-                    >
-                      <Ionicons
-                        name="help-circle"
-                        size={24}
-                        color={tintColor}
-                      />
-                    </Pressable>
+                    {isSelected ? (
+                      <Ionicons name="checkmark" size={28} color={tintColor} />
+                    ) : (
+                      <Pressable
+                        style={styles.infoButton}
+                        onPress={() => setSelectedExerciseForDetails(exercise)}
+                      >
+                        <Ionicons
+                          name="help-circle"
+                          size={24}
+                          color={tintColor}
+                        />
+                      </Pressable>
+                    )}
                   </Pressable>
                 );
               })
             )}
           </ScrollView>
         </View>
-      </View>
+      </Pressable>
 
       {/* Body Part Picker Modal */}
       <Modal
@@ -608,13 +608,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 12,
   },
   dialogContainer: {
-    width: "100%",
-    maxWidth: 500,
-    height: "90%",
-    borderRadius: 24,
+    width: "96%",
+    maxWidth: 480,
+    height: "84%",
+    borderRadius: 20,
     overflow: "hidden",
   },
   header: {
@@ -625,6 +625,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(107, 114, 128, 0.2)",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
   closeButton: {
     width: 40,
@@ -638,9 +643,14 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: "row",
-    gap: 16,
+    alignItems: "center",
+    gap: 8,
   },
   headerAction: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  headerCount: {
     fontSize: 16,
     fontWeight: "500",
   },
@@ -666,15 +676,20 @@ const styles = StyleSheet.create({
   },
   filtersContent: {
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
+    alignItems: "center",
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     borderRadius: 10,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
   },
   sortButton: {
@@ -683,23 +698,24 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
+    flexShrink: 0,
   },
   exerciseList: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 0,
     gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(107, 114, 128, 0.15)",
   },
   exerciseIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 8,
     backgroundColor: "#374151",
     justifyContent: "center",
     alignItems: "center",
@@ -711,28 +727,31 @@ const styles = StyleSheet.create({
   },
   exerciseInfo: {
     flex: 1,
+    gap: 4,
   },
   exerciseName: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     marginBottom: 4,
   },
   exerciseMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexWrap: "nowrap",
   },
   exerciseMetaText: {
     fontSize: 13,
     color: "#9ca3af",
+    fontWeight: "500",
   },
   exerciseMetaDot: {
     fontSize: 13,
     color: "#9ca3af",
   },
   infoButton: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
   },
