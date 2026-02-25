@@ -24,12 +24,20 @@ export interface ExerciseStickyNote {
   createdAt: string;
 }
 
+export interface WorkoutNote {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 interface WorkoutContextType {
   isWorkoutActive: boolean;
   isModalOpen: boolean;
   exerciseSets: Record<string, SetData[]>;
   exerciseNotes: Record<string, ExerciseNote[]>;
   exerciseStickyNotes: Record<string, ExerciseStickyNote>;
+  workoutNotes: WorkoutNote[];
+  workoutPhoto: string | null;
   startWorkout: () => void;
   endWorkout: () => void;
   openWorkout: () => void;
@@ -45,6 +53,10 @@ interface WorkoutContextType {
   deleteExerciseNote: (exerciseId: string, noteId: string) => void;
   setExerciseStickyNote: (exerciseId: string, text: string) => void;
   deleteExerciseStickyNote: (exerciseId: string) => void;
+  addWorkoutNote: (text: string) => void;
+  updateWorkoutNote: (noteId: string, text: string) => void;
+  deleteWorkoutNote: (noteId: string) => void;
+  setWorkoutPhoto: (uri: string | null) => void;
 }
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
@@ -61,6 +73,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [exerciseStickyNotes, setExerciseStickyNotes] = useState<
     Record<string, ExerciseStickyNote>
   >({});
+  const [workoutNotes, setWorkoutNotes] = useState<WorkoutNote[]>([]);
+  const [workoutPhoto, setWorkoutPhoto] = useState<string | null>(null);
 
   const startWorkout = () => {
     setIsWorkoutActive(true);
@@ -73,6 +87,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setExerciseSets({});
     setExerciseNotes({});
     setExerciseStickyNotes({});
+    setWorkoutNotes([]);
+    setWorkoutPhoto(null);
   };
 
   const openWorkout = () => {
@@ -146,6 +162,25 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addWorkoutNote = (text: string) => {
+    const newNote: WorkoutNote = {
+      id: Date.now().toString(),
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    setWorkoutNotes((prev) => [...prev, newNote]);
+  };
+
+  const updateWorkoutNote = (noteId: string, text: string) => {
+    setWorkoutNotes((prev) =>
+      prev.map((note) => (note.id === noteId ? { ...note, text } : note)),
+    );
+  };
+
+  const deleteWorkoutNote = (noteId: string) => {
+    setWorkoutNotes((prev) => prev.filter((note) => note.id !== noteId));
+  };
+
   return (
     <WorkoutContext.Provider
       value={{
@@ -154,6 +189,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         exerciseSets,
         exerciseNotes,
         exerciseStickyNotes,
+        workoutNotes,
+        workoutPhoto,
         startWorkout,
         endWorkout,
         openWorkout,
@@ -165,6 +202,10 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         deleteExerciseNote,
         setExerciseStickyNote,
         deleteExerciseStickyNote,
+        addWorkoutNote,
+        updateWorkoutNote,
+        deleteWorkoutNote,
+        setWorkoutPhoto,
       }}
     >
       {children}

@@ -2,26 +2,30 @@ import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { Exercise } from "@/types/workout";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
 import {
-  Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Alert,
+    Image,
+    Modal,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import DraggableFlatList, {
-  RenderItemParams,
-  ScaleDecorator,
+    RenderItemParams,
+    ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { CompactTimer } from "./compact-timer";
 import { ExerciseLogItem } from "./exercise-log-item";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
 import { RestTimerModal } from "./rest-timer-modal";
+import { WorkoutNoteItem } from "./workout-note-item";
 
 export function WorkoutBottomSheet() {
   const [workoutName, setWorkoutName] = useState("Quick Workout");
@@ -32,6 +36,8 @@ export function WorkoutBottomSheet() {
   const [showWorkoutMenu, setShowWorkoutMenu] = useState(false);
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [showHeaderTimer, setShowHeaderTimer] = useState(false);
+  const [showAddNoteInput, setShowAddNoteInput] = useState(false);
+  const [noteText, setNoteText] = useState("");
   const scrollYRef = useRef(0);
   const [restTimerData, setRestTimerData] = useState<{
     remainingTime: number;
@@ -44,7 +50,18 @@ export function WorkoutBottomSheet() {
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
 
-  const { isWorkoutActive, isModalOpen, endWorkout, closeModal } = useWorkout();
+  const {
+    isWorkoutActive,
+    isModalOpen,
+    endWorkout,
+    closeModal,
+    workoutNotes,
+    workoutPhoto,
+    addWorkoutNote,
+    updateWorkoutNote,
+    deleteWorkoutNote,
+    setWorkoutPhoto,
+  } = useWorkout();
 
   // Reset selected exercises when workout is ended
   useEffect(() => {
@@ -55,6 +72,8 @@ export function WorkoutBottomSheet() {
       setIsEditingName(false);
       setRestTimerData(null);
       setShowRestTimer(false);
+      setShowAddNoteInput(false);
+      setNoteText("");
     }
   }, [isWorkoutActive]);
 
@@ -106,14 +125,32 @@ export function WorkoutBottomSheet() {
   };
 
   const handleCancel = () => {
-    // Reset everything when canceling workout
-    setElapsedTime(0);
-    setWorkoutName("Quick Workout");
-    setIsEditingName(false);
-    setSelectedExercises([]);
-    setRestTimerData(null);
-    setShowRestTimer(false);
-    endWorkout(); // This will also clear exerciseSets
+    Alert.alert(
+      "Cancel Workout",
+      "Are you sure you want to cancel workout? Progress will be lost.",
+      [
+        {
+          text: "Resume",
+          style: "cancel",
+        },
+        {
+          text: "Cancel Workout",
+          style: "destructive",
+          onPress: () => {
+            // Reset everything when canceling workout
+            setElapsedTime(0);
+            setWorkoutName("Quick Workout");
+            setIsEditingName(false);
+            setSelectedExercises([]);
+            setRestTimerData(null);
+            setShowRestTimer(false);
+            setShowAddNoteInput(false);
+            setNoteText("");
+            endWorkout(); // This will also clear exerciseSets
+          },
+        },
+      ],
+    );
   };
 
   const handleFinish = () => {
@@ -124,6 +161,8 @@ export function WorkoutBottomSheet() {
     setSelectedExercises([]);
     setRestTimerData(null);
     setShowRestTimer(false);
+    setShowAddNoteInput(false);
+    setNoteText("");
     endWorkout(); // This will also clear exerciseSets
   };
 
@@ -191,6 +230,152 @@ export function WorkoutBottomSheet() {
     const shouldShow = scrollY > 100;
     if (shouldShow !== showHeaderTimer) {
       setShowHeaderTimer(shouldShow);
+    }
+  };
+
+  const handleAddPhoto = async () => {
+    setShowWorkoutMenu(false);
+
+    Alert.alert("Add Photo", "Choose an option", [
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const permissionResult =
+            await ImagePicker.requestCameraPermissionsAsync();
+
+          if (permissionResult.granted === false) {
+            Alert.alert(
+              "Permission Required",
+              "You need to allow camera access to take a photo.",
+            );
+            return;
+          }
+
+          const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.8,
+          });
+
+          if (!result.canceled && result.assets[0]) {
+            setWorkoutPhoto(result.assets[0].uri);
+          }
+        },
+      },
+      {
+        text: "Choose from Library",
+        onPress: async () => {
+          const permissionResult =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+          if (permissionResult.granted === false) {
+            Alert.alert(
+              "Permission Required",
+              "You need to allow access to your photos.",
+            );
+            return;
+          }
+
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.8,
+          });
+
+          if (!result.canceled && result.assets[0]) {
+            setWorkoutPhoto(result.assets[0].uri);
+          }
+        },
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
+  };
+
+  const handlePhotoPress = () => {
+    Alert.alert("Workout Photo", "Choose an option", [
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const permissionResult =
+            await ImagePicker.requestCameraPermissionsAsync();
+
+          if (permissionResult.granted === false) {
+            Alert.alert(
+              "Permission Required",
+              "You need to allow camera access to take a photo.",
+            );
+            return;
+          }
+
+          const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.8,
+          });
+
+          if (!result.canceled && result.assets[0]) {
+            setWorkoutPhoto(result.assets[0].uri);
+          }
+        },
+      },
+      {
+        text: "Choose from Library",
+        onPress: async () => {
+          const permissionResult =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+          if (permissionResult.granted === false) {
+            Alert.alert(
+              "Permission Required",
+              "You need to allow access to your photos.",
+            );
+            return;
+          }
+
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.8,
+          });
+
+          if (!result.canceled && result.assets[0]) {
+            setWorkoutPhoto(result.assets[0].uri);
+          }
+        },
+      },
+      {
+        text: "Remove Current Photo",
+        style: "destructive",
+        onPress: () => setWorkoutPhoto(null),
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
+  };
+
+  const handleRemovePhoto = () => {
+    setShowWorkoutMenu(false);
+    setWorkoutPhoto(null);
+  };
+
+  const handleAddNote = () => {
+    // Always add note, even if empty
+    addWorkoutNote(noteText.trim());
+    setNoteText("");
+    setShowAddNoteInput(false);
+  };
+
+  const handleRemoveNote = () => {
+    setShowWorkoutMenu(false);
+    if (workoutNotes.length > 0) {
+      deleteWorkoutNote(workoutNotes[0].id);
     }
   };
 
@@ -332,12 +517,63 @@ export function WorkoutBottomSheet() {
                   <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
                   <Text style={styles.metaText}>{formatDate()}</Text>
                 </View>
+              </View>
 
+              <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
                   <Ionicons name="time-outline" size={16} color="#9ca3af" />
                   <Text style={styles.metaText}>{formatTime(elapsedTime)}</Text>
                 </View>
               </View>
+
+              {/* Workout Photo */}
+              {workoutPhoto && (
+                <Pressable
+                  style={styles.workoutPhotoContainer}
+                  onPress={handlePhotoPress}
+                >
+                  <Image
+                    source={{ uri: workoutPhoto }}
+                    style={styles.workoutPhoto}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              )}
+
+              {/* Workout Notes - Only show first note */}
+              {workoutNotes.length > 0 && (
+                <View style={styles.workoutNoteWrapper}>
+                  <WorkoutNoteItem
+                    note={workoutNotes[0]}
+                    onUpdate={updateWorkoutNote}
+                    onDelete={deleteWorkoutNote}
+                  />
+                </View>
+              )}
+
+              {/* Add Note Input - Only show if no notes exist */}
+              {showAddNoteInput && workoutNotes.length === 0 && (
+                <View style={styles.workoutNoteWrapper}>
+                  <View
+                    style={[
+                      styles.addNoteContainer,
+                      { backgroundColor: cardBackground },
+                    ]}
+                  >
+                    <Ionicons name="document-text" size={16} color="#9ca3af" />
+                    <TextInput
+                      style={[styles.addNoteInput, { color: textColor }]}
+                      value={noteText}
+                      onChangeText={setNoteText}
+                      placeholder="Add a note..."
+                      placeholderTextColor="#9ca3af"
+                      autoFocus
+                      multiline
+                      onBlur={handleAddNote}
+                    />
+                  </View>
+                </View>
+              )}
             </View>
 
             <View style={styles.exerciseArea}>
@@ -431,7 +667,9 @@ export function WorkoutBottomSheet() {
                     />
                     <Text style={styles.metaText}>{formatDate()}</Text>
                   </View>
+                </View>
 
+                <View style={styles.metaRow}>
                   <View style={styles.metaItem}>
                     <Ionicons name="time-outline" size={16} color="#9ca3af" />
                     <Text style={styles.metaText}>
@@ -439,6 +677,59 @@ export function WorkoutBottomSheet() {
                     </Text>
                   </View>
                 </View>
+
+                {/* Workout Photo */}
+                {workoutPhoto && (
+                  <Pressable
+                    style={styles.workoutPhotoContainer}
+                    onPress={handlePhotoPress}
+                  >
+                    <Image
+                      source={{ uri: workoutPhoto }}
+                      style={styles.workoutPhoto}
+                      resizeMode="cover"
+                    />
+                  </Pressable>
+                )}
+
+                {/* Workout Notes - Only show first note */}
+                {workoutNotes.length > 0 && (
+                  <View style={styles.workoutNoteWrapper}>
+                    <WorkoutNoteItem
+                      note={workoutNotes[0]}
+                      onUpdate={updateWorkoutNote}
+                      onDelete={deleteWorkoutNote}
+                    />
+                  </View>
+                )}
+
+                {/* Add Note Input - Only show if no notes exist */}
+                {showAddNoteInput && workoutNotes.length === 0 && (
+                  <View style={styles.workoutNoteWrapper}>
+                    <View
+                      style={[
+                        styles.addNoteContainer,
+                        { backgroundColor: cardBackground },
+                      ]}
+                    >
+                      <Ionicons
+                        name="document-text"
+                        size={16}
+                        color="#9ca3af"
+                      />
+                      <TextInput
+                        style={[styles.addNoteInput, { color: textColor }]}
+                        value={noteText}
+                        onChangeText={setNoteText}
+                        placeholder="Add a note..."
+                        placeholderTextColor="#9ca3af"
+                        autoFocus
+                        multiline
+                        onBlur={handleAddNote}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
             }
             ListFooterComponent={
@@ -517,30 +808,51 @@ export function WorkoutBottomSheet() {
               <Pressable
                 style={styles.menuItem}
                 onPress={() => {
-                  setShowWorkoutMenu(false);
-                  // TODO: Add photo functionality
+                  if (workoutPhoto) {
+                    handleRemovePhoto();
+                  } else {
+                    handleAddPhoto();
+                  }
                 }}
               >
-                <Ionicons name="camera-outline" size={20} color={textColor} />
-                <Text style={[styles.menuItemText, { color: textColor }]}>
-                  Add Photo
+                <Ionicons
+                  name="camera-outline"
+                  size={20}
+                  color={workoutPhoto ? "#ef4444" : textColor}
+                />
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: workoutPhoto ? "#ef4444" : textColor },
+                  ]}
+                >
+                  {workoutPhoto ? "Remove Photo" : "Add Photo"}
                 </Text>
               </Pressable>
 
               <Pressable
                 style={styles.menuItem}
                 onPress={() => {
-                  setShowWorkoutMenu(false);
-                  // TODO: Add note functionality
+                  if (workoutNotes.length > 0) {
+                    handleRemoveNote();
+                  } else {
+                    setShowWorkoutMenu(false);
+                    setShowAddNoteInput(true);
+                  }
                 }}
               >
                 <Ionicons
                   name="document-text-outline"
                   size={20}
-                  color={textColor}
+                  color={workoutNotes.length > 0 ? "#ef4444" : textColor}
                 />
-                <Text style={[styles.menuItemText, { color: textColor }]}>
-                  Add Note
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: workoutNotes.length > 0 ? "#ef4444" : textColor },
+                  ]}
+                >
+                  {workoutNotes.length > 0 ? "Remove Note" : "Add Note"}
                 </Text>
               </Pressable>
             </View>
@@ -635,6 +947,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     gap: 16,
+    marginBottom: 4,
   },
   metaItem: {
     flexDirection: "row",
@@ -729,5 +1042,34 @@ const styles = StyleSheet.create({
     padding: 4,
     justifyContent: "center",
     alignItems: "center",
+  },
+  workoutPhotoContainer: {
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+  },
+  workoutPhoto: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+  },
+  workoutNoteWrapper: {
+    marginTop: 8,
+  },
+  addNoteContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#6b7280",
+  },
+  addNoteInput: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 40,
   },
 });
