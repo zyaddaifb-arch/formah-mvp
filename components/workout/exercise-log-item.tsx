@@ -13,13 +13,17 @@ import {
   View,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/Swipeable";
+import { ExerciseDetailsDialog } from "./exercise-details-dialog";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
+import InlineRestTimer from "./inline-rest-timer";
 
 interface ExerciseLogItemProps {
   exercise: Exercise;
   onRemove: () => void;
   onReplace: (oldExercise: Exercise, newExercise: Exercise) => void;
   dragHandle?: React.ReactNode;
+  onStartRestTimer?: (setId: string, duration: number) => void;
+  onScrollToView?: (yPosition: number) => void;
 }
 
 export function ExerciseLogItem({
@@ -27,6 +31,8 @@ export function ExerciseLogItem({
   onRemove,
   onReplace,
   dragHandle,
+  onStartRestTimer,
+  onScrollToView,
 }: ExerciseLogItemProps) {
   const {
     exerciseSets,
@@ -40,7 +46,7 @@ export function ExerciseLogItem({
     deleteExerciseStickyNote,
   } = useWorkout();
 
-  // Initialize sets from context or use default
+  // Initialize sets from context or use default (empty values, no zeros)
   const [sets, setSets] = useState<SetData[]>(() => {
     const savedSets = exerciseSets[exercise.id];
     return savedSets && savedSets.length > 0
@@ -48,10 +54,45 @@ export function ExerciseLogItem({
       : [{ id: "1", weight: "", reps: "", completed: false }];
   });
 
+  // State for validation errors
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Initialize rest timers for all sets
+  const [restTimers, setRestTimers] = useState<
+    Record<
+      string,
+      {
+        remainingTime: number;
+        totalDuration: number;
+        isRunning: boolean;
+      }
+    >
+  >(() => {
+    // Create timers for all initial sets
+    const initialTimers: Record<
+      string,
+      { remainingTime: number; totalDuration: number; isRunning: boolean }
+    > = {};
+    const initialSets = exerciseSets[exercise.id] || [
+      { id: "1", weight: "", reps: "", completed: false },
+    ];
+    initialSets.forEach((set) => {
+      initialTimers[set.id] = {
+        remainingTime: 120, // Default 2:00
+        totalDuration: 120,
+        isRunning: false,
+      };
+    });
+    return initialTimers;
+  });
+
   // Sync sets to context whenever they change
   useEffect(() => {
     updateExerciseSets(exercise.id, sets);
   }, [sets, exercise.id]);
+
   const [showMenu, setShowMenu] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
   const [showReplaceDialog, setShowReplaceDialog] = useState(false);
@@ -59,8 +100,9 @@ export function ExerciseLogItem({
   const [showStickyNoteInput, setShowStickyNoteInput] = useState(false);
   const [showWarmupDialog, setShowWarmupDialog] = useState(false);
   const [showPreferencesDialog, setShowPreferencesDialog] = useState(false);
+  const [showExerciseDetails, setShowExerciseDetails] = useState(false);
   const [expandedPreference, setExpandedPreference] = useState<
-    "weightUnit" | "barType" | null
+    "weightUnit" | "barType" | "restDuration" | null
   >(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -72,24 +114,81 @@ export function ExerciseLogItem({
   const [barType, setBarType] = useState<
     "olympic" | "short" | "ez" | "hex" | "none"
   >("olympic");
+  const [showRestTimerModal, setShowRestTimerModal] = useState(false);
+  const [selectedSetForTimer, setSelectedSetForTimer] = useState<string | null>(
+    null,
+  );
+  const [defaultRestDuration, setDefaultRestDuration] = useState(120); // Default 2:00
 
   const textColor = useThemeColor({}, "text");
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
   const backgroundColor = useThemeColor({}, "background");
 
+  // Rest timer countdown effect
+  useEffect(() => {
+    const activeTimers = Object.keys(restTimers).filter(
+      (setId) =>
+        restTimers[setId].isRunning && restTimers[setId].remainingTime > 0,
+    );
+
+    if (activeTimers.length === 0) return;
+
+    const interval = setInterval(() => {
+      setRestTimers((prev) => {
+        const updated = { ...prev };
+        let hasChanges = false;
+
+        activeTimers.forEach((setId) => {
+          if (updated[setId] && updated[setId].remainingTime > 0) {
+            updated[setId] = {
+              ...updated[setId],
+              remainingTime: updated[setId].remainingTime - 1,
+            };
+            hasChanges = true;
+          }
+
+          // Stop timer when it reaches 0, but don't delete it
+          if (updated[setId] && updated[setId].remainingTime <= 0) {
+            updated[setId] = {
+              ...updated[setId],
+              remainingTime: 0,
+              isRunning: false,
+            };
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [restTimers]);
+
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
+    const newSetId = String(sets.length + 1);
     setSets([
       ...sets,
       {
-        id: String(sets.length + 1),
+        id: newSetId,
         weight: lastSet.weight,
         reps: lastSet.reps,
         completed: false,
         isWarmup: false,
       },
     ]);
+
+    // Add timer for new set automatically
+    setRestTimers((prev) => ({
+      ...prev,
+      [newSetId]: {
+        remainingTime: defaultRestDuration,
+        totalDuration: defaultRestDuration,
+        isRunning: false, // Not running yet, user can customize
+      },
+    }));
   };
 
   const addWarmupSets = (count: number) => {
@@ -109,11 +208,66 @@ export function ExerciseLogItem({
   };
 
   const toggleSetComplete = (setId: string) => {
+    const set = sets.find((s) => s.id === setId);
+
+    // Validate: weight and reps must have values (not empty or zero)
+    if (set && !set.completed) {
+      const hasWeight = set.weight.trim() !== "" && set.weight !== "0";
+      const hasReps = set.reps.trim() !== "" && set.reps !== "0";
+
+      if (!hasWeight || !hasReps) {
+        // Show validation error
+        setValidationErrors((prev) => ({ ...prev, [setId]: true }));
+
+        // Clear error after 2 seconds
+        setTimeout(() => {
+          setValidationErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors[setId];
+            return newErrors;
+          });
+        }, 2000);
+
+        return; // Don't complete the set
+      }
+    }
+
+    // Clear any validation error for this set
+    setValidationErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[setId];
+      return newErrors;
+    });
+
+    const isCompleting = set && !set.completed;
+
     setSets(
-      sets.map((set) =>
-        set.id === setId ? { ...set, completed: !set.completed } : set,
-      ),
+      sets.map((s) => (s.id === setId ? { ...s, completed: !s.completed } : s)),
     );
+
+    // Start rest timer when completing a set
+    if (isCompleting) {
+      setRestTimers((prev) => ({
+        ...prev,
+        [setId]: {
+          remainingTime: prev[setId]?.remainingTime || defaultRestDuration,
+          totalDuration: prev[setId]?.totalDuration || defaultRestDuration,
+          isRunning: true, // Start running when set is completed
+        },
+      }));
+    } else {
+      // Stop timer when uncompleting a set
+      setRestTimers((prev) => {
+        const newTimers = { ...prev };
+        if (newTimers[setId]) {
+          newTimers[setId] = {
+            ...newTimers[setId],
+            isRunning: false,
+          };
+        }
+        return newTimers;
+      });
+    }
   };
 
   const updateSet = (
@@ -238,9 +392,14 @@ export function ExerciseLogItem({
       <View style={styles.header}>
         <View style={styles.exerciseNameRow}>
           {dragHandle}
-          <Text style={[styles.exerciseName, { color: tintColor }]}>
-            {exercise.name}
-          </Text>
+          <Pressable
+            onPress={() => setShowExerciseDetails(true)}
+            style={styles.exerciseNameButton}
+          >
+            <Text style={[styles.exerciseName, { color: tintColor }]}>
+              {exercise.name}
+            </Text>
+          </Pressable>
         </View>
         <View style={styles.headerActions}>
           <Pressable
@@ -510,99 +669,159 @@ export function ExerciseLogItem({
           setNumber = String(regularIndex + 1);
         }
 
+        const hasTimer = restTimers[set.id];
+
         return (
-          <Swipeable
-            key={set.id}
-            renderRightActions={() => renderRightActions(set.id)}
-            overshootRight={false}
-          >
-            <View
-              style={[
-                styles.setRow,
-                isWarmup && {
-                  backgroundColor: "rgba(251, 146, 60, 0.15)",
-                },
-              ]}
+          <View key={set.id}>
+            <Swipeable
+              renderRightActions={() => renderRightActions(set.id)}
+              overshootRight={false}
             >
-              <Text
+              <View
                 style={[
-                  styles.setNumber,
-                  { color: isWarmup ? "#fb923c" : textColor },
-                ]}
-              >
-                {setNumber}
-              </Text>
-
-              <Text style={[styles.previousText, { color: "#6b7280" }]}>
-                {set.weight && set.reps
-                  ? `${set.weight} ${weightUnit === "default" ? "kg" : weightUnit} × ${set.reps}`
-                  : "—"}
-              </Text>
-
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: textColor,
-                    backgroundColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.1)"
-                      : cardBackground,
-                    borderWidth: 1,
-                    borderColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.3)"
-                      : "rgba(107, 114, 128, 0.3)",
+                  styles.setRow,
+                  isWarmup && {
+                    backgroundColor: "rgba(251, 146, 60, 0.15)",
                   },
-                ]}
-                value={set.weight}
-                onChangeText={(value) => updateSet(set.id, "weight", value)}
-                keyboardType="numeric"
-                selectTextOnFocus
-                placeholder="0"
-                placeholderTextColor="#6b7280"
-              />
-
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: textColor,
-                    backgroundColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.1)"
-                      : cardBackground,
-                    borderWidth: 1,
-                    borderColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.3)"
-                      : "rgba(107, 114, 128, 0.3)",
-                  },
-                ]}
-                value={set.reps}
-                onChangeText={(value) => updateSet(set.id, "reps", value)}
-                keyboardType="numeric"
-                selectTextOnFocus
-                placeholder="0"
-                placeholderTextColor="#6b7280"
-              />
-
-              <Pressable
-                style={[
-                  styles.checkmark,
                   set.completed && {
-                    backgroundColor: isWarmup ? "#fb923c" : "#10b981",
-                    borderColor: isWarmup ? "#fb923c" : "#10b981",
+                    backgroundColor: "rgba(16, 185, 129, 0.1)", // Light green background
                   },
-                  !set.completed &&
-                    isWarmup && {
-                      borderColor: "#fb923c",
-                    },
                 ]}
-                onPress={() => toggleSetComplete(set.id)}
               >
-                {set.completed && (
-                  <Ionicons name="checkmark" size={24} color="#fff" />
-                )}
-              </Pressable>
-            </View>
-          </Swipeable>
+                <Text
+                  style={[
+                    styles.setNumber,
+                    { color: isWarmup ? "#fb923c" : textColor },
+                  ]}
+                >
+                  {setNumber}
+                </Text>
+
+                {/* Previous data - only show from saved workout history, not current session */}
+                <Text style={[styles.previousText, { color: "#6b7280" }]}>
+                  —
+                </Text>
+
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      color: textColor,
+                      backgroundColor: isWarmup
+                        ? "rgba(251, 146, 60, 0.1)"
+                        : cardBackground,
+                      borderWidth: 2,
+                      borderColor: validationErrors[set.id]
+                        ? "#ef4444"
+                        : isWarmup
+                          ? "rgba(251, 146, 60, 0.3)"
+                          : "rgba(107, 114, 128, 0.3)",
+                    },
+                  ]}
+                  value={set.weight}
+                  onChangeText={(value) => updateSet(set.id, "weight", value)}
+                  keyboardType="numeric"
+                  selectTextOnFocus
+                  placeholder=""
+                  placeholderTextColor="#6b7280"
+                />
+
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      color: textColor,
+                      backgroundColor: isWarmup
+                        ? "rgba(251, 146, 60, 0.1)"
+                        : cardBackground,
+                      borderWidth: 2,
+                      borderColor: validationErrors[set.id]
+                        ? "#ef4444"
+                        : isWarmup
+                          ? "rgba(251, 146, 60, 0.3)"
+                          : "rgba(107, 114, 128, 0.3)",
+                    },
+                  ]}
+                  value={set.reps}
+                  onChangeText={(value) => updateSet(set.id, "reps", value)}
+                  keyboardType="numeric"
+                  selectTextOnFocus
+                  placeholder=""
+                  placeholderTextColor="#6b7280"
+                />
+
+                <Pressable
+                  style={[
+                    styles.checkmark,
+                    set.completed && {
+                      backgroundColor: isWarmup ? "#fb923c" : "#10b981",
+                      borderColor: isWarmup ? "#fb923c" : "#10b981",
+                    },
+                    !set.completed &&
+                      isWarmup && {
+                        borderColor: "#fb923c",
+                      },
+                  ]}
+                  onPress={() => toggleSetComplete(set.id)}
+                >
+                  {set.completed && (
+                    <Ionicons name="checkmark" size={24} color="#fff" />
+                  )}
+                </Pressable>
+              </View>
+            </Swipeable>
+
+            {/* Inline Rest Timer - Show after each set */}
+            {hasTimer && (
+              <InlineRestTimer
+                remainingTime={hasTimer.remainingTime}
+                totalDuration={hasTimer.totalDuration}
+                isRunning={hasTimer.isRunning}
+                isCompleted={set.completed}
+                onUpdate={(remaining: number, total: number) => {
+                  setRestTimers((prev) => ({
+                    ...prev,
+                    [set.id]: {
+                      remainingTime: remaining,
+                      totalDuration: total,
+                      isRunning: prev[set.id]?.isRunning || false,
+                    },
+                  }));
+                }}
+                onStart={() => {
+                  setRestTimers((prev) => ({
+                    ...prev,
+                    [set.id]: {
+                      ...prev[set.id],
+                      isRunning: true,
+                    },
+                  }));
+                }}
+                onPause={() => {
+                  setRestTimers((prev) => ({
+                    ...prev,
+                    [set.id]: {
+                      ...prev[set.id],
+                      isRunning: false,
+                    },
+                  }));
+                }}
+                onSkip={() => {
+                  setRestTimers((prev) => {
+                    const newTimers = { ...prev };
+                    delete newTimers[set.id];
+                    return newTimers;
+                  });
+                }}
+                onKeyboardOpen={(yPosition: number) => {
+                  // Scroll this specific timer into view when keyboard opens
+                  if (onScrollToView) {
+                    onScrollToView(yPosition);
+                  }
+                }}
+              />
+            )}
+          </View>
         );
       })}
 
@@ -731,6 +950,13 @@ export function ExerciseLogItem({
           }
         }}
         singleSelect={true}
+      />
+
+      {/* Exercise Details Dialog */}
+      <ExerciseDetailsDialog
+        visible={showExerciseDetails}
+        onClose={() => setShowExerciseDetails(false)}
+        exercise={exercise}
       />
 
       {/* Warm Up Sets Dialog */}
@@ -1205,6 +1431,139 @@ export function ExerciseLogItem({
               )}
             </View>
 
+            {/* Divider */}
+            <View style={styles.preferenceDivider} />
+
+            {/* Rest Duration Section */}
+            <View style={styles.preferenceSection}>
+              <Pressable
+                style={styles.preferenceSectionHeader}
+                onPress={() =>
+                  setExpandedPreference(
+                    expandedPreference === "restDuration"
+                      ? null
+                      : "restDuration",
+                  )
+                }
+              >
+                <View style={styles.preferenceSectionHeaderContent}>
+                  <Text
+                    style={[
+                      styles.preferenceSectionTitle,
+                      { color: textColor },
+                    ]}
+                  >
+                    Default Rest Timer
+                  </Text>
+                  <Text
+                    style={[
+                      styles.preferenceSectionValue,
+                      { color: "#9ca3af" },
+                    ]}
+                  >
+                    {Math.floor(defaultRestDuration / 60)}:
+                    {(defaultRestDuration % 60).toString().padStart(2, "0")}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={
+                    expandedPreference === "restDuration"
+                      ? "chevron-up"
+                      : "chevron-down"
+                  }
+                  size={20}
+                  color={textColor}
+                />
+              </Pressable>
+
+              {expandedPreference === "restDuration" && (
+                <View style={styles.optionGroup}>
+                  <View style={styles.restDurationControls}>
+                    <Pressable
+                      style={[
+                        styles.restDurationButton,
+                        { borderColor: "#6b7280" },
+                      ]}
+                      onPress={() =>
+                        setDefaultRestDuration((prev) =>
+                          Math.max(15, prev - 15),
+                        )
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.restDurationButtonText,
+                          { color: textColor },
+                        ]}
+                      >
+                        -15s
+                      </Text>
+                    </Pressable>
+                    <View style={styles.restDurationDisplay}>
+                      <Text
+                        style={[styles.restDurationTime, { color: tintColor }]}
+                      >
+                        {Math.floor(defaultRestDuration / 60)}:
+                        {(defaultRestDuration % 60).toString().padStart(2, "0")}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={[
+                        styles.restDurationButton,
+                        { borderColor: "#6b7280" },
+                      ]}
+                      onPress={() =>
+                        setDefaultRestDuration((prev) =>
+                          Math.min(300, prev + 15),
+                        )
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.restDurationButtonText,
+                          { color: textColor },
+                        ]}
+                      >
+                        +15s
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.restDurationPresets}>
+                    {[30, 45, 60, 90, 120].map((duration) => (
+                      <Pressable
+                        key={duration}
+                        style={[
+                          styles.presetButton,
+                          defaultRestDuration === duration && {
+                            backgroundColor: tintColor,
+                          },
+                        ]}
+                        onPress={() => {
+                          setDefaultRestDuration(duration);
+                          setExpandedPreference(null);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.presetButtonText,
+                            {
+                              color:
+                                defaultRestDuration === duration
+                                  ? "#fff"
+                                  : textColor,
+                            },
+                          ]}
+                        >
+                          {Math.floor(duration / 60)}:
+                          {(duration % 60).toString().padStart(2, "0")}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+
             <Pressable
               style={[
                 styles.dialogButton,
@@ -1245,10 +1604,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
+  exerciseNameButton: {
+    flex: 1,
+  },
   exerciseName: {
     fontSize: 18,
     fontWeight: "700",
-    flex: 1,
   },
   headerActions: {
     flexDirection: "row",
@@ -1608,5 +1969,46 @@ const styles = StyleSheet.create({
   },
   optionSubtext: {
     fontSize: 12,
+  },
+  restDurationControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  restDurationButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  restDurationButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  restDurationDisplay: {
+    flex: 2,
+    alignItems: "center",
+  },
+  restDurationTime: {
+    fontSize: 32,
+    fontWeight: "700",
+  },
+  restDurationPresets: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  presetButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#6b7280",
+  },
+  presetButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

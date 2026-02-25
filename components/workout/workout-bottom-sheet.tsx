@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
 import {
     Alert,
+    Dimensions,
     Image,
     Modal,
     NativeScrollEvent,
@@ -39,6 +40,7 @@ export function WorkoutBottomSheet() {
   const [showAddNoteInput, setShowAddNoteInput] = useState(false);
   const [noteText, setNoteText] = useState("");
   const scrollYRef = useRef(0);
+  const flatListRef = useRef<any>(null);
   const [restTimerData, setRestTimerData] = useState<{
     remainingTime: number;
     totalDuration: number;
@@ -379,6 +381,28 @@ export function WorkoutBottomSheet() {
     }
   };
 
+  const scrollToPosition = (yPosition: number) => {
+    if (flatListRef.current) {
+      // Get actual screen dimensions
+      const screenHeight = Dimensions.get("window").height;
+      const targetPosition = screenHeight * 0.25; // Position at 25% from top
+
+      // Calculate scroll offset needed to position the timer above keyboard
+      const scrollOffset = yPosition - targetPosition;
+
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToOffset({
+            offset: Math.max(0, scrollOffset),
+            animated: true,
+          });
+        } catch (error) {
+          console.log("Scroll to position failed");
+        }
+      }, 100);
+    }
+  };
+
   const renderExerciseItem = ({
     item,
     drag,
@@ -410,6 +434,7 @@ export function WorkoutBottomSheet() {
             onRemove={() => handleRemoveExercise(index ?? 0)}
             onReplace={handleReplaceExercise}
             dragHandle={dragHandleComponent}
+            onScrollToView={scrollToPosition}
           />
         </View>
       </ScaleDecorator>
@@ -604,6 +629,7 @@ export function WorkoutBottomSheet() {
           </ScrollView>
         ) : (
           <DraggableFlatList
+            ref={flatListRef}
             data={selectedExercises}
             onDragEnd={({ data }) => setSelectedExercises(data)}
             keyExtractor={(item, index) => `${item.id}-${index}`}
