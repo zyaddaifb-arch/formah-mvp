@@ -145,6 +145,15 @@ export function WorkoutBottomSheet() {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleReplaceExercise = (
+    oldExercise: Exercise,
+    newExercise: Exercise,
+  ) => {
+    setSelectedExercises((prev) =>
+      prev.map((ex) => (ex.id === oldExercise.id ? newExercise : ex)),
+    );
+  };
+
   const handleTimerMinimize = (
     remainingTime: number,
     totalDuration: number,
@@ -214,6 +223,7 @@ export function WorkoutBottomSheet() {
           <ExerciseLogItem
             exercise={item}
             onRemove={() => handleRemoveExercise(index ?? 0)}
+            onReplace={handleReplaceExercise}
             dragHandle={dragHandleComponent}
           />
         </View>

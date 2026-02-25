@@ -23,6 +23,7 @@ interface ExerciseSelectionDialogProps {
   visible: boolean;
   onClose: () => void;
   onSelectExercises: (exercises: Exercise[]) => void;
+  singleSelect?: boolean;
 }
 
 type SortOption = "name" | "frequency" | "lastPerformed";
@@ -31,6 +32,7 @@ export function ExerciseSelectionDialog({
   visible,
   onClose,
   onSelectExercises,
+  singleSelect = false,
 }: ExerciseSelectionDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBodyPart, setSelectedBodyPart] = useState("Any Body Part");
@@ -116,14 +118,23 @@ export function ExerciseSelectionDialog({
   const hasNoResults = searchQuery.trim() && sortedExercises.length === 0;
 
   const handleSelectExercise = (exercise: Exercise) => {
-    setSelectedExercises((prev) => {
-      const isSelected = prev.some((e) => e.id === exercise.id);
-      if (isSelected) {
-        return prev.filter((e) => e.id !== exercise.id);
-      } else {
-        return [...prev, exercise];
-      }
-    });
+    if (singleSelect) {
+      // In single select mode, immediately select and close
+      onSelectExercises([exercise]);
+      setSelectedExercises([]);
+      setSearchQuery("");
+      setSelectedBodyPart("Any Body Part");
+      setSelectedCategory("Any Category");
+    } else {
+      setSelectedExercises((prev) => {
+        const isSelected = prev.some((e) => e.id === exercise.id);
+        if (isSelected) {
+          return prev.filter((e) => e.id !== exercise.id);
+        } else {
+          return [...prev, exercise];
+        }
+      });
+    }
   };
 
   const handleAddExercises = () => {
@@ -176,30 +187,38 @@ export function ExerciseSelectionDialog({
             </Pressable>
 
             <Text style={[styles.headerTitle, { color: tintColor }]}>
-              {selectedExercises.length > 0
-                ? `${selectedExercises.length} Selected`
-                : "New"}
+              {singleSelect
+                ? "Replace Exercise"
+                : selectedExercises.length > 0
+                  ? `${selectedExercises.length} Selected`
+                  : "New"}
             </Text>
 
             <View style={styles.headerActions}>
-              <Pressable onPress={() => setShowCreateDialog(true)}>
-                <Text style={[styles.headerAction, { color: tintColor }]}>
-                  New
-                </Text>
-              </Pressable>
-              <Pressable onPress={handleAddExercises}>
-                <Text
-                  style={[
-                    styles.headerAction,
-                    {
-                      color:
-                        selectedExercises.length > 0 ? tintColor : "#6b7280",
-                    },
-                  ]}
-                >
-                  Add
-                </Text>
-              </Pressable>
+              {!singleSelect && (
+                <>
+                  <Pressable onPress={() => setShowCreateDialog(true)}>
+                    <Text style={[styles.headerAction, { color: tintColor }]}>
+                      New
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={handleAddExercises}>
+                    <Text
+                      style={[
+                        styles.headerAction,
+                        {
+                          color:
+                            selectedExercises.length > 0
+                              ? tintColor
+                              : "#6b7280",
+                        },
+                      ]}
+                    >
+                      Add
+                    </Text>
+                  </Pressable>
+                </>
+              )}
             </View>
           </View>
 

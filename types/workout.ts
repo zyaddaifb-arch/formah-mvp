@@ -31,6 +31,17 @@ export interface Set {
   completed: boolean;
 }
 
+export interface ExerciseNote {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface ExerciseStickyNote {
+  text: string;
+  createdAt: string;
+}
+
 export interface ConsistencyData {
   completedDays: number;
   totalDays: number;

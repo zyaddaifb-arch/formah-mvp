@@ -5,6 +5,7 @@ export interface SetData {
   weight: string;
   reps: string;
   completed: boolean;
+  isWarmup?: boolean;
 }
 
 export interface ExerciseWithSets {
@@ -12,16 +13,38 @@ export interface ExerciseWithSets {
   sets: SetData[];
 }
 
+export interface ExerciseNote {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface ExerciseStickyNote {
+  text: string;
+  createdAt: string;
+}
+
 interface WorkoutContextType {
   isWorkoutActive: boolean;
   isModalOpen: boolean;
   exerciseSets: Record<string, SetData[]>;
+  exerciseNotes: Record<string, ExerciseNote[]>;
+  exerciseStickyNotes: Record<string, ExerciseStickyNote>;
   startWorkout: () => void;
   endWorkout: () => void;
   openWorkout: () => void;
   closeModal: () => void;
   updateExerciseSets: (exerciseId: string, sets: SetData[]) => void;
   clearExerciseSets: () => void;
+  addExerciseNote: (exerciseId: string, text: string) => void;
+  updateExerciseNote: (
+    exerciseId: string,
+    noteId: string,
+    text: string,
+  ) => void;
+  deleteExerciseNote: (exerciseId: string, noteId: string) => void;
+  setExerciseStickyNote: (exerciseId: string, text: string) => void;
+  deleteExerciseStickyNote: (exerciseId: string) => void;
 }
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
@@ -32,6 +55,12 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [exerciseSets, setExerciseSets] = useState<Record<string, SetData[]>>(
     {},
   );
+  const [exerciseNotes, setExerciseNotes] = useState<
+    Record<string, ExerciseNote[]>
+  >({});
+  const [exerciseStickyNotes, setExerciseStickyNotes] = useState<
+    Record<string, ExerciseStickyNote>
+  >({});
 
   const startWorkout = () => {
     setIsWorkoutActive(true);
@@ -42,6 +71,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setIsWorkoutActive(false);
     setIsModalOpen(false);
     setExerciseSets({});
+    setExerciseNotes({});
+    setExerciseStickyNotes({});
   };
 
   const openWorkout = () => {
@@ -63,18 +94,77 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setExerciseSets({});
   };
 
+  const addExerciseNote = (exerciseId: string, text: string) => {
+    const newNote: ExerciseNote = {
+      id: Date.now().toString(),
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    setExerciseNotes((prev) => ({
+      ...prev,
+      [exerciseId]: [...(prev[exerciseId] || []), newNote],
+    }));
+  };
+
+  const updateExerciseNote = (
+    exerciseId: string,
+    noteId: string,
+    text: string,
+  ) => {
+    setExerciseNotes((prev) => ({
+      ...prev,
+      [exerciseId]: (prev[exerciseId] || []).map((note) =>
+        note.id === noteId ? { ...note, text } : note,
+      ),
+    }));
+  };
+
+  const deleteExerciseNote = (exerciseId: string, noteId: string) => {
+    setExerciseNotes((prev) => ({
+      ...prev,
+      [exerciseId]: (prev[exerciseId] || []).filter(
+        (note) => note.id !== noteId,
+      ),
+    }));
+  };
+
+  const setExerciseStickyNote = (exerciseId: string, text: string) => {
+    setExerciseStickyNotes((prev) => ({
+      ...prev,
+      [exerciseId]: {
+        text,
+        createdAt: new Date().toISOString(),
+      },
+    }));
+  };
+
+  const deleteExerciseStickyNote = (exerciseId: string) => {
+    setExerciseStickyNotes((prev) => {
+      const newNotes = { ...prev };
+      delete newNotes[exerciseId];
+      return newNotes;
+    });
+  };
+
   return (
     <WorkoutContext.Provider
       value={{
         isWorkoutActive,
         isModalOpen,
         exerciseSets,
+        exerciseNotes,
+        exerciseStickyNotes,
         startWorkout,
         endWorkout,
         openWorkout,
         closeModal,
         updateExerciseSets,
         clearExerciseSets,
+        addExerciseNote,
+        updateExerciseNote,
+        deleteExerciseNote,
+        setExerciseStickyNote,
+        deleteExerciseStickyNote,
       }}
     >
       {children}
