@@ -29,6 +29,7 @@ interface ExerciseLogItemProps {
   isActive?: boolean;
   onSetComplete?: (exerciseId: string, setId: string) => void;
   onSetUncomplete?: (exerciseId: string, setId: string) => void;
+  onSetDelete?: (exerciseId: string, setId: string) => void;
 }
 
 export function ExerciseLogItem({
@@ -40,6 +41,7 @@ export function ExerciseLogItem({
   isActive = false,
   onSetComplete,
   onSetUncomplete,
+  onSetDelete,
 }: ExerciseLogItemProps) {
   const {
     exerciseSets,
@@ -181,6 +183,11 @@ export function ExerciseLogItem({
   };
 
   const deleteSet = (setId: string) => {
+    // Notify parent before deleting the set
+    if (onSetDelete) {
+      onSetDelete(exercise.id, setId);
+    }
+
     const newSets = sets.filter((set) => set.id !== setId);
 
     // If no sets left, remove the entire exercise

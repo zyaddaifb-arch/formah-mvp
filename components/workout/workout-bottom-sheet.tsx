@@ -41,6 +41,12 @@ export function WorkoutBottomSheet() {
   const scrollYRef = useRef(0);
   const [showInlineTimer, setShowInlineTimer] = useState(false);
   const [inlineTimerKey, setInlineTimerKey] = useState(0);
+  const [currentTimerExerciseId, setCurrentTimerExerciseId] = useState<
+    string | null
+  >(null);
+  const [currentTimerSetId, setCurrentTimerSetId] = useState<string | null>(
+    null,
+  );
   const [restTimerData, setRestTimerData] = useState<{
     remainingTime: number;
     totalDuration: number;
@@ -221,6 +227,14 @@ export function WorkoutBottomSheet() {
   };
 
   const handleRemoveExercise = (index: number) => {
+    const removedExercise = selectedExercises[index];
+
+    // If the removed exercise has an active timer, hide it
+    if (removedExercise && currentTimerExerciseId === removedExercise.id) {
+      setShowInlineTimer(false);
+      setCurrentTimerExerciseId(null);
+    }
+
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -259,19 +273,35 @@ export function WorkoutBottomSheet() {
     setInlineTimerKey((prev) => prev + 1);
     // Show inline timer when a set is completed
     setShowInlineTimer(true);
+    // Track which exercise and set triggered the timer
+    setCurrentTimerExerciseId(exerciseId);
+    setCurrentTimerSetId(setId);
   };
 
   const handleSetUncomplete = (exerciseId: string, setId: string) => {
     // Hide inline timer when a set is unchecked
     setShowInlineTimer(false);
+    setCurrentTimerExerciseId(null);
+    setCurrentTimerSetId(null);
   };
 
   const handleInlineTimerSkip = () => {
     setShowInlineTimer(false);
+    setCurrentTimerExerciseId(null);
   };
 
   const handleInlineTimerComplete = () => {
     setShowInlineTimer(false);
+    setCurrentTimerExerciseId(null);
+  };
+
+  const handleSetDelete = (exerciseId: string, setId: string) => {
+    // If the deleted set matches the current timer, hide the timer
+    if (exerciseId === currentTimerExerciseId && setId === currentTimerSetId) {
+      setShowInlineTimer(false);
+      setCurrentTimerExerciseId(null);
+      setCurrentTimerSetId(null);
+    }
   };
 
   const handleTimerUpdate = (remainingTime: number, totalDuration: number) => {
@@ -468,6 +498,7 @@ export function WorkoutBottomSheet() {
           isActive={isActive}
           onSetComplete={handleSetComplete}
           onSetUncomplete={handleSetUncomplete}
+          onSetDelete={handleSetDelete}
         />
       </View>
     );
