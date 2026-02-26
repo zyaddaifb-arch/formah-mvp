@@ -1,7 +1,11 @@
 import type { SetData } from "@/contexts/workout-context";
 import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import type { Exercise } from "@/types/workout";
+import type { Exercise, FocusMetricType } from "@/types/workout";
+import {
+  calculateFocusMetric,
+  getMetricDisplayName,
+} from "@/utils/focus-metrics";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -14,6 +18,7 @@ import {
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
+import { FocusMetricSelector } from "./focus-metric-selector";
 
 interface ExerciseLogItemProps {
   exercise: Exercise;
@@ -38,6 +43,8 @@ export function ExerciseLogItem({
     exerciseStickyNotes,
     setExerciseStickyNote,
     deleteExerciseStickyNote,
+    exerciseFocusMetrics,
+    setExerciseFocusMetric,
   } = useWorkout();
 
   // Initialize sets from context or use default
@@ -59,6 +66,7 @@ export function ExerciseLogItem({
   const [showStickyNoteInput, setShowStickyNoteInput] = useState(false);
   const [showWarmupDialog, setShowWarmupDialog] = useState(false);
   const [showPreferencesDialog, setShowPreferencesDialog] = useState(false);
+  const [showFocusMetricSelector, setShowFocusMetricSelector] = useState(false);
   const [expandedPreference, setExpandedPreference] = useState<
     "weightUnit" | "barType" | null
   >(null);
@@ -231,6 +239,43 @@ export function ExerciseLogItem({
 
   const notes = exerciseNotes[exercise.id] || [];
   const stickyNote = exerciseStickyNotes[exercise.id];
+  const currentFocusMetric = (exerciseFocusMetrics[exercise.id] ||
+    "volume_increase") as FocusMetricType;
+
+  // Calculate metrics for display
+  const completedSets = sets.filter((s) => s.completed);
+
+  // Mock previous data for demonstration
+  // TODO: Replace with actual workout history data
+  const previousSets = [
+    { weight: 30, reps: 10, completed: true },
+    { weight: 30, reps: 10, completed: true },
+    { weight: 30, reps: 10, completed: true },
+    { weight: 30, reps: 10, completed: true },
+  ];
+
+  const metrics = {
+    volume_increase: calculateFocusMetric(
+      "volume_increase",
+      completedSets,
+      previousSets,
+    ),
+    total_volume: calculateFocusMetric(
+      "total_volume",
+      completedSets,
+      previousSets,
+    ),
+    total_reps: calculateFocusMetric("total_reps", completedSets, previousSets),
+    weight_per_rep: calculateFocusMetric(
+      "weight_per_rep",
+      completedSets,
+      previousSets,
+    ),
+  };
+
+  const handleSelectFocusMetric = (metricType: FocusMetricType) => {
+    setExerciseFocusMetric(exercise.id, metricType);
+  };
 
   return (
     <View style={styles.container}>
@@ -410,43 +455,46 @@ export function ExerciseLogItem({
             <Text style={[styles.metricsSectionTitle, { color: textColor }]}>
               Focus Metrics
             </Text>
-            <Pressable style={styles.helpButton}>
-              <Ionicons name="help-circle-outline" size={20} color="#9ca3af" />
-            </Pressable>
           </View>
+
+          {/* Current Focus Metric - Highlighted */}
+          <Pressable
+            style={[styles.primaryMetricCard, { backgroundColor: tintColor }]}
+            onPress={() => setShowFocusMetricSelector(true)}
+          >
+            <View style={styles.primaryMetricHeader}>
+              <Text style={styles.primaryMetricLabel}>
+                {getMetricDisplayName(currentFocusMetric)}
+              </Text>
+              <Ionicons name="star" size={16} color="#fff" />
+            </View>
+            <Text style={styles.primaryMetricValue}>
+              {metrics[currentFocusMetric as keyof typeof metrics]
+                ?.displayValue || "N/A"}
+            </Text>
+            <Text style={styles.primaryMetricPrevious}>vs Last Time</Text>
+          </Pressable>
+
+          {/* Other Metrics */}
           <View style={styles.metricsGrid}>
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
-                Total Volume
-              </Text>
-              <Text style={[styles.metricValue, { color: textColor }]}>
-                N/A
-              </Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
-                Volume Increase
-              </Text>
-              <Text style={[styles.metricValue, { color: textColor }]}>
-                -100%
-              </Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
-                Total Reps
-              </Text>
-              <Text style={[styles.metricValue, { color: textColor }]}>
-                N/A
-              </Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
-                Weight/Rep
-              </Text>
-              <Text style={[styles.metricValue, { color: textColor }]}>
-                N/A
-              </Text>
-            </View>
+            {Object.entries(metrics)
+              .filter(([key]) => key !== currentFocusMetric)
+              .map(([key, value]) => (
+                <Pressable
+                  key={key}
+                  style={styles.metricCard}
+                  onPress={() =>
+                    handleSelectFocusMetric(key as FocusMetricType)
+                  }
+                >
+                  <Text style={[styles.metricLabel, { color: "#9ca3af" }]}>
+                    {getMetricDisplayName(key as FocusMetricType)}
+                  </Text>
+                  <Text style={[styles.metricValue, { color: textColor }]}>
+                    {value.displayValue}
+                  </Text>
+                </Pressable>
+              ))}
           </View>
         </View>
       )}
@@ -731,6 +779,15 @@ export function ExerciseLogItem({
           }
         }}
         singleSelect={true}
+      />
+
+      {/* Focus Metric Selector */}
+      <FocusMetricSelector
+        visible={showFocusMetricSelector}
+        onClose={() => setShowFocusMetricSelector(false)}
+        onSelect={handleSelectFocusMetric}
+        currentMetric={currentFocusMetric}
+        exerciseCategory={exercise.category}
       />
 
       {/* Warm Up Sets Dialog */}
@@ -1409,6 +1466,47 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  primaryMetricCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  primaryMetricHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  primaryMetricLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#fff",
+    opacity: 0.9,
+  },
+  primaryMetricContent: {
+    marginBottom: 8,
+  },
+  primaryMetricValue: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  primaryMetricPrevious: {
+    fontSize: 13,
+    color: "#fff",
+    opacity: 0.8,
+  },
+  primaryMetricChangeBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  primaryMetricChange: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
   metricCard: {
     flex: 1,
     minWidth: "48%",
@@ -1423,6 +1521,11 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  metricChange: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
   },
   stickyNoteContainer: {
     flexDirection: "row",

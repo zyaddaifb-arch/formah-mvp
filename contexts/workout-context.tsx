@@ -11,6 +11,7 @@ export interface SetData {
 export interface ExerciseWithSets {
   exerciseId: string;
   sets: SetData[];
+  focusMetric?: string;
 }
 
 export interface ExerciseNote {
@@ -36,6 +37,7 @@ interface WorkoutContextType {
   exerciseSets: Record<string, SetData[]>;
   exerciseNotes: Record<string, ExerciseNote[]>;
   exerciseStickyNotes: Record<string, ExerciseStickyNote>;
+  exerciseFocusMetrics: Record<string, string>;
   workoutNotes: WorkoutNote[];
   workoutPhoto: string | null;
   startWorkout: () => void;
@@ -53,6 +55,7 @@ interface WorkoutContextType {
   deleteExerciseNote: (exerciseId: string, noteId: string) => void;
   setExerciseStickyNote: (exerciseId: string, text: string) => void;
   deleteExerciseStickyNote: (exerciseId: string) => void;
+  setExerciseFocusMetric: (exerciseId: string, metricType: string) => void;
   addWorkoutNote: (text: string) => void;
   updateWorkoutNote: (noteId: string, text: string) => void;
   deleteWorkoutNote: (noteId: string) => void;
@@ -73,6 +76,9 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [exerciseStickyNotes, setExerciseStickyNotes] = useState<
     Record<string, ExerciseStickyNote>
   >({});
+  const [exerciseFocusMetrics, setExerciseFocusMetrics] = useState<
+    Record<string, string>
+  >({});
   const [workoutNotes, setWorkoutNotes] = useState<WorkoutNote[]>([]);
   const [workoutPhoto, setWorkoutPhoto] = useState<string | null>(null);
 
@@ -87,6 +93,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setExerciseSets({});
     setExerciseNotes({});
     setExerciseStickyNotes({});
+    setExerciseFocusMetrics({});
     setWorkoutNotes([]);
     setWorkoutPhoto(null);
   };
@@ -181,6 +188,13 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setWorkoutNotes((prev) => prev.filter((note) => note.id !== noteId));
   };
 
+  const setExerciseFocusMetric = (exerciseId: string, metricType: string) => {
+    setExerciseFocusMetrics((prev) => ({
+      ...prev,
+      [exerciseId]: metricType,
+    }));
+  };
+
   return (
     <WorkoutContext.Provider
       value={{
@@ -189,6 +203,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         exerciseSets,
         exerciseNotes,
         exerciseStickyNotes,
+        exerciseFocusMetrics,
         workoutNotes,
         workoutPhoto,
         startWorkout,
@@ -202,6 +217,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         deleteExerciseNote,
         setExerciseStickyNote,
         deleteExerciseStickyNote,
+        setExerciseFocusMetric,
         addWorkoutNote,
         updateWorkoutNote,
         deleteWorkoutNote,

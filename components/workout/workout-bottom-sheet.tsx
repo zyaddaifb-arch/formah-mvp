@@ -24,6 +24,7 @@ import DraggableFlatList, {
 import { CompactTimer } from "./compact-timer";
 import { ExerciseLogItem } from "./exercise-log-item";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
+import { InlineRestTimer } from "./inline-rest-timer";
 import { RestTimerModal } from "./rest-timer-modal";
 import { WorkoutNoteItem } from "./workout-note-item";
 
@@ -39,6 +40,8 @@ export function WorkoutBottomSheet() {
   const [showAddNoteInput, setShowAddNoteInput] = useState(false);
   const [noteText, setNoteText] = useState("");
   const scrollYRef = useRef(0);
+  const [showInlineTimer, setShowInlineTimer] = useState(false);
+  const [inlineTimerKey, setInlineTimerKey] = useState(0);
   const [restTimerData, setRestTimerData] = useState<{
     remainingTime: number;
     totalDuration: number;
@@ -74,6 +77,7 @@ export function WorkoutBottomSheet() {
       setShowRestTimer(false);
       setShowAddNoteInput(false);
       setNoteText("");
+      setShowInlineTimer(false);
     }
   }, [isWorkoutActive]);
 
@@ -212,6 +216,26 @@ export function WorkoutBottomSheet() {
 
   const handleTimerComplete = () => {
     setRestTimerData(null);
+  };
+
+  const handleSetComplete = (exerciseId: string, setId: string) => {
+    // Reset timer by changing key (remounts component)
+    setInlineTimerKey((prev) => prev + 1);
+    // Show inline timer when a set is completed
+    setShowInlineTimer(true);
+  };
+
+  const handleSetUncomplete = (exerciseId: string, setId: string) => {
+    // Hide inline timer when a set is unchecked
+    setShowInlineTimer(false);
+  };
+
+  const handleInlineTimerSkip = () => {
+    setShowInlineTimer(false);
+  };
+
+  const handleInlineTimerComplete = () => {
+    setShowInlineTimer(false);
   };
 
   const handleTimerUpdate = (remainingTime: number, totalDuration: number) => {
@@ -410,6 +434,8 @@ export function WorkoutBottomSheet() {
             onRemove={() => handleRemoveExercise(index ?? 0)}
             onReplace={handleReplaceExercise}
             dragHandle={dragHandleComponent}
+            onSetComplete={handleSetComplete}
+            onSetUncomplete={handleSetUncomplete}
           />
         </View>
       </ScaleDecorator>
@@ -761,6 +787,7 @@ export function WorkoutBottomSheet() {
         visible={isExerciseDialogOpen}
         onClose={() => setIsExerciseDialogOpen(false)}
         onSelectExercises={handleSelectExercises}
+        excludedExerciseIds={selectedExercises.map((ex) => ex.id)}
       />
 
       <RestTimerModal
@@ -859,6 +886,16 @@ export function WorkoutBottomSheet() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Inline Rest Timer - Floating at bottom */}
+      {showInlineTimer && (
+        <InlineRestTimer
+          key={inlineTimerKey}
+          onSkip={handleInlineTimerSkip}
+          onComplete={handleInlineTimerComplete}
+          initialDuration={150}
+        />
+      )}
     </Modal>
   );
 }

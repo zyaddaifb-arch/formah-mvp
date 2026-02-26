@@ -24,6 +24,7 @@ interface ExerciseSelectionDialogProps {
   onClose: () => void;
   onSelectExercises: (exercises: Exercise[]) => void;
   singleSelect?: boolean;
+  excludedExerciseIds?: string[]; // IDs of exercises already in the workout
 }
 
 type SortOption = "name" | "frequency" | "lastPerformed";
@@ -33,6 +34,7 @@ export function ExerciseSelectionDialog({
   onClose,
   onSelectExercises,
   singleSelect = false,
+  excludedExerciseIds = [],
 }: ExerciseSelectionDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBodyPart, setSelectedBodyPart] = useState("Any Body Part");
@@ -118,6 +120,11 @@ export function ExerciseSelectionDialog({
   const hasNoResults = searchQuery.trim() && sortedExercises.length === 0;
 
   const handleSelectExercise = (exercise: Exercise) => {
+    // Don't allow selecting exercises that are already in the workout
+    if (excludedExerciseIds.includes(exercise.id)) {
+      return;
+    }
+
     if (singleSelect) {
       // In single select mode, immediately select and close
       onSelectExercises([exercise]);
@@ -307,6 +314,9 @@ export function ExerciseSelectionDialog({
             ) : (
               sortedExercises.map((exercise) => {
                 const isSelected = isExerciseSelected(exercise.id);
+                const isAlreadyInWorkout = excludedExerciseIds.includes(
+                  exercise.id,
+                );
                 return (
                   <Pressable
                     key={exercise.id}
@@ -316,8 +326,12 @@ export function ExerciseSelectionDialog({
                       isSelected && {
                         backgroundColor: "rgba(59, 130, 246, 0.15)",
                       },
+                      isAlreadyInWorkout && {
+                        opacity: 0.5,
+                      },
                     ]}
                     onPress={() => handleSelectExercise(exercise)}
+                    disabled={isAlreadyInWorkout}
                   >
                     <View style={styles.exerciseIcon}>
                       <Text style={styles.exerciseIconText}>
@@ -337,10 +351,29 @@ export function ExerciseSelectionDialog({
                         <Text style={styles.exerciseMetaText}>
                           {exercise.equipment}
                         </Text>
+                        {isAlreadyInWorkout && (
+                          <>
+                            <Text style={styles.exerciseMetaDot}>•</Text>
+                            <Text
+                              style={[
+                                styles.exerciseMetaText,
+                                { color: tintColor },
+                              ]}
+                            >
+                              Already Added
+                            </Text>
+                          </>
+                        )}
                       </View>
                     </View>
 
-                    {isSelected ? (
+                    {isAlreadyInWorkout ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={28}
+                        color={tintColor}
+                      />
+                    ) : isSelected ? (
                       <Ionicons name="checkmark" size={28} color={tintColor} />
                     ) : (
                       <Pressable

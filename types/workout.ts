@@ -11,6 +11,22 @@ export interface Exercise {
   name: string;
   bodyPart: string;
   equipment: string;
+  category?: "weight_reps" | "time" | "distance" | "bodyweight";
+}
+
+export type FocusMetricType =
+  | "total_volume"
+  | "volume_increase"
+  | "weight_per_rep"
+  | "total_reps"
+  | "reps_per_set"
+  | "total_time"
+  | "average_time"
+  | "total_distance";
+
+export interface ExerciseFocusMetric {
+  exerciseId: string;
+  metricType: FocusMetricType;
 }
 
 export interface WorkoutSession {
@@ -18,11 +34,13 @@ export interface WorkoutSession {
   templateId: string;
   date: string;
   exercises: ExerciseLog[];
+  completedAt?: string;
 }
 
 export interface ExerciseLog {
   exerciseId: string;
   sets: Set[];
+  focusMetric?: FocusMetricType;
 }
 
 export interface Set {

@@ -6,17 +6,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import DraggableFlatList, {
-  RenderItemParams,
-  ScaleDecorator,
+    RenderItemParams,
+    ScaleDecorator,
 } from "react-native-draggable-flatlist";
 
 export default function CreateTemplateScreen() {
@@ -216,6 +216,7 @@ export default function CreateTemplateScreen() {
         visible={showExerciseDialog}
         onClose={() => setShowExerciseDialog(false)}
         onSelectExercises={handleAddExercises}
+        excludedExerciseIds={selectedExercises.map((ex) => ex.id)}
       />
     </ThemedView>
   );
