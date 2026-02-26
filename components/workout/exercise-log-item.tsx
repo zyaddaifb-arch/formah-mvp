@@ -77,6 +77,29 @@ export function ExerciseLogItem({
   const [weightUnit, setWeightUnit] = useState<"default" | "kg" | "lbs">(
     "default",
   );
+  const [previousWeightUnit, setPreviousWeightUnit] = useState<
+    "default" | "kg" | "lbs"
+  >("default");
+
+  // Convert weights when unit changes
+  useEffect(() => {
+    if (weightUnit !== previousWeightUnit && previousWeightUnit !== "default") {
+      const conversionFactor = weightUnit === "lbs" ? 2.20462 : 1 / 2.20462;
+
+      setSets((currentSets) =>
+        currentSets.map((set) => {
+          if (!set.weight || set.weight === "") return set;
+          const numWeight = parseFloat(set.weight);
+          if (isNaN(numWeight)) return set;
+
+          const convertedWeight =
+            Math.round(numWeight * conversionFactor * 10) / 10;
+          return { ...set, weight: convertedWeight.toString() };
+        }),
+      );
+    }
+    setPreviousWeightUnit(weightUnit);
+  }, [weightUnit]);
   const [barType, setBarType] = useState<
     "olympic" | "short" | "ez" | "hex" | "none"
   >("olympic");
@@ -131,6 +154,12 @@ export function ExerciseLogItem({
   ) => {
     setSets(
       sets.map((set) => (set.id === setId ? { ...set, [field]: value } : set)),
+    );
+  };
+
+  const updateSetBoth = (setId: string, weight: string, reps: string) => {
+    setSets(
+      sets.map((set) => (set.id === setId ? { ...set, weight, reps } : set)),
     );
   };
 
@@ -242,35 +271,119 @@ export function ExerciseLogItem({
   const currentFocusMetric = (exerciseFocusMetrics[exercise.id] ||
     "volume_increase") as FocusMetricType;
 
-  // Calculate metrics for display
-  const completedSets = sets.filter((s) => s.completed);
+  // Calculate metrics for display (exclude warmup sets)
+  const completedSets = sets.filter((s) => s.completed && !s.isWarmup);
 
-  // Mock previous data for demonstration
-  // TODO: Replace with actual workout history data
-  const previousSets = [
-    { weight: 30, reps: 10, completed: true },
-    { weight: 30, reps: 10, completed: true },
-    { weight: 30, reps: 10, completed: true },
-    { weight: 30, reps: 10, completed: true },
-  ];
+  // Get previous workout data from history
+  const [previousSets, setPreviousSets] = useState<
+    Array<{ weight: number; reps: number; completed: boolean }>
+  >([]);
+
+  useEffect(() => {
+    // Load previous workout data for this exercise
+    const loadPreviousData = async () => {
+      const { getLastWorkoutForExercise } =
+        await import("@/data/storage/workouts");
+      const lastWorkout = await getLastWorkoutForExercise(exercise.id);
+
+      if (lastWorkout) {
+        const exerciseLog = lastWorkout.exercises.find(
+          (ex) => ex.exerciseId === exercise.id,
+        );
+        if (exerciseLog && exerciseLog.sets) {
+          const prevSets = exerciseLog.sets.map((set) => ({
+            weight: set.weight,
+            reps: set.reps,
+            completed: set.completed,
+          }));
+          setPreviousSets(prevSets);
+
+          // Auto-populate sets if this is a new exercise (only 1 empty set)
+          const currentSets = exerciseSets[exercise.id];
+          if (
+            !currentSets ||
+            (currentSets.length === 1 &&
+              !currentSets[0].weight &&
+              !currentSets[0].reps)
+          ) {
+            // Create sets matching previous workout count
+            const newSets = prevSets.map((_, index) => ({
+              id: String(index + 1),
+              weight: "",
+              reps: "",
+              completed: false,
+              isWarmup: false,
+            }));
+            setSets(newSets);
+          }
+        }
+      }
+    };
+
+    loadPreviousData();
+  }, [exercise.id]);
 
   const metrics = {
-    volume_increase: calculateFocusMetric(
-      "volume_increase",
-      completedSets,
-      previousSets,
-    ),
-    total_volume: calculateFocusMetric(
-      "total_volume",
-      completedSets,
-      previousSets,
-    ),
+    volume_increase: (() => {
+      const result = calculateFocusMetric(
+        "volume_increase",
+        // Convert current sets to kg for comparison if using lbs
+        completedSets.map((set) => {
+          const weight = parseFloat(set.weight) || 0;
+          const convertedWeight =
+            weightUnit === "lbs" ? weight / 2.20462 : weight;
+          return {
+            ...set,
+            weight: convertedWeight.toString(),
+          };
+        }),
+        previousSets,
+      );
+      return result;
+    })(),
+    total_volume: (() => {
+      const result = calculateFocusMetric(
+        "total_volume",
+        completedSets.map((set) => {
+          const weight = parseFloat(set.weight) || 0;
+          const convertedWeight =
+            weightUnit === "lbs" ? weight / 2.20462 : weight;
+          return {
+            ...set,
+            weight: convertedWeight.toString(),
+          };
+        }),
+        previousSets,
+      );
+      // Convert display value to lbs if needed
+      if (weightUnit === "lbs" && result.current !== null) {
+        const volumeInLbs = result.current * 2.20462;
+        result.displayValue = `${volumeInLbs.toFixed(0)} lbs`;
+      }
+      return result;
+    })(),
     total_reps: calculateFocusMetric("total_reps", completedSets, previousSets),
-    weight_per_rep: calculateFocusMetric(
-      "weight_per_rep",
-      completedSets,
-      previousSets,
-    ),
+    weight_per_rep: (() => {
+      const result = calculateFocusMetric(
+        "weight_per_rep",
+        completedSets.map((set) => {
+          const weight = parseFloat(set.weight) || 0;
+          const convertedWeight =
+            weightUnit === "lbs" ? weight / 2.20462 : weight;
+          return {
+            ...set,
+            weight: convertedWeight.toString(),
+          };
+        }),
+        previousSets,
+      );
+      // Convert display value to lbs if needed
+      if (weightUnit === "lbs" && result.current !== null) {
+        const weightInLbs = result.current * 2.20462;
+        result.displayValue = `${weightInLbs.toFixed(1)} lbs`;
+      }
+      return result;
+    })(),
   };
 
   const handleSelectFocusMetric = (metricType: FocusMetricType) => {
@@ -581,11 +694,59 @@ export function ExerciseLogItem({
                 {setNumber}
               </Text>
 
-              <Text style={[styles.previousText, { color: "#6b7280" }]}>
-                {set.weight && set.reps
-                  ? `${set.weight} ${weightUnit === "default" ? "kg" : weightUnit} × ${set.reps}`
-                  : "—"}
-              </Text>
+              <Pressable
+                onPress={() => {
+                  // Calculate set index for previous data
+                  const regularSets = sets.filter((s) => !s.isWarmup);
+                  const regularIndex = regularSets.findIndex(
+                    (s) => s.id === set.id,
+                  );
+                  const prevSet = previousSets[regularIndex];
+
+                  // Copy previous values to current set (both weight and reps together)
+                  if (prevSet && (prevSet.weight || prevSet.reps)) {
+                    // Convert weight based on selected unit
+                    let weightValue = prevSet.weight;
+                    if (weightUnit === "lbs") {
+                      // Convert kg to lbs (1 kg = 2.20462 lbs)
+                      weightValue =
+                        Math.round(prevSet.weight * 2.20462 * 10) / 10;
+                    }
+
+                    updateSetBoth(
+                      set.id,
+                      weightValue.toString(),
+                      prevSet.reps.toString(),
+                    );
+                  }
+                }}
+              >
+                <Text style={[styles.previousText, { color: "#6b7280" }]}>
+                  {(() => {
+                    // Calculate set index for previous data
+                    const regularSets = sets.filter((s) => !s.isWarmup);
+                    const regularIndex = regularSets.findIndex(
+                      (s) => s.id === set.id,
+                    );
+                    const prevSet = previousSets[regularIndex];
+
+                    // Only show previous for non-warmup sets
+                    if (set.isWarmup) return "—";
+                    if (!prevSet || (!prevSet.weight && !prevSet.reps))
+                      return "—";
+
+                    // Convert weight based on selected unit for display
+                    let displayWeight = prevSet.weight;
+                    if (weightUnit === "lbs") {
+                      // Convert kg to lbs (1 kg = 2.20462 lbs)
+                      displayWeight =
+                        Math.round(prevSet.weight * 2.20462 * 10) / 10;
+                    }
+
+                    return `${displayWeight.toString()} ${weightUnit === "default" ? "kg" : weightUnit} × ${prevSet.reps.toString()}`;
+                  })()}
+                </Text>
+              </Pressable>
 
               <TextInput
                 style={[

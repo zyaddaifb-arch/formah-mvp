@@ -58,6 +58,8 @@ export function WorkoutBottomSheet() {
     isModalOpen,
     endWorkout,
     closeModal,
+    exerciseSets,
+    exerciseFocusMetrics,
     workoutNotes,
     workoutPhoto,
     addWorkoutNote,
@@ -157,7 +159,40 @@ export function WorkoutBottomSheet() {
     );
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // Save workout to history before finishing
+    // Build workout session data
+    const workoutSession: import("@/types/workout").WorkoutSession = {
+      id: Date.now().toString(),
+      templateId: "quick-workout", // TODO: Use actual template ID
+      date: new Date().toISOString(),
+      exercises: selectedExercises.map((exercise) => {
+        const sets = exerciseSets[exercise.id] || [];
+        return {
+          exerciseId: exercise.id,
+          sets: sets
+            .filter((set) => !set.isWarmup) // Only save non-warmup sets
+            .map((set) => ({
+              reps: parseInt(set.reps) || 0,
+              weight: parseFloat(set.weight) || 0,
+              completed: set.completed,
+            })),
+          focusMetric: exerciseFocusMetrics[exercise.id] as
+            | import("@/types/workout").FocusMetricType
+            | undefined,
+        };
+      }),
+      completedAt: new Date().toISOString(),
+    };
+
+    // Save to storage
+    try {
+      const { saveWorkout } = await import("@/data/storage/workouts");
+      await saveWorkout(workoutSession);
+    } catch (error) {
+      console.error("Error saving workout:", error);
+    }
+
     // Reset everything when finishing workout
     setElapsedTime(0);
     setWorkoutName("Quick Workout");
