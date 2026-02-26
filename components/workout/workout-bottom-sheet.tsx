@@ -19,7 +19,6 @@ import {
 } from "react-native";
 import DraggableFlatList, {
     RenderItemParams,
-    ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { CompactTimer } from "./compact-timer";
 import { ExerciseLogItem } from "./exercise-log-item";
@@ -47,6 +46,7 @@ export function WorkoutBottomSheet() {
     totalDuration: number;
     isRunning: boolean;
   } | null>(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -80,6 +80,7 @@ export function WorkoutBottomSheet() {
       setShowAddNoteInput(false);
       setNoteText("");
       setShowInlineTimer(false);
+      setIsReorderMode(false);
     }
   }, [isWorkoutActive]);
 
@@ -446,34 +447,29 @@ export function WorkoutBottomSheet() {
   }: RenderItemParams<Exercise>) => {
     const index = getIndex();
 
-    const dragHandleComponent = (
-      <Pressable
-        onLongPress={drag}
-        disabled={isActive}
-        style={styles.inlineDragHandle}
-      >
-        <Ionicons name="reorder-three" size={20} color={tintColor} />
-      </Pressable>
-    );
-
     return (
-      <ScaleDecorator>
-        <View
-          style={[
-            styles.exerciseItemWrapper,
-            isActive && styles.exerciseItemActive,
-          ]}
-        >
-          <ExerciseLogItem
-            exercise={item}
-            onRemove={() => handleRemoveExercise(index ?? 0)}
-            onReplace={handleReplaceExercise}
-            dragHandle={dragHandleComponent}
-            onSetComplete={handleSetComplete}
-            onSetUncomplete={handleSetUncomplete}
-          />
-        </View>
-      </ScaleDecorator>
+      <View
+        style={[
+          styles.exerciseItemWrapper,
+          isActive && styles.exerciseItemDragging,
+          isActive && { backgroundColor: cardBackground },
+        ]}
+      >
+        <ExerciseLogItem
+          exercise={item}
+          onRemove={() => handleRemoveExercise(index ?? 0)}
+          onReplace={handleReplaceExercise}
+          onLongPress={() => {
+            setIsReorderMode(true);
+            // Small delay to ensure UI updates before drag starts
+            setTimeout(() => drag(), 50);
+          }}
+          isReorderMode={isReorderMode}
+          isActive={isActive}
+          onSetComplete={handleSetComplete}
+          onSetUncomplete={handleSetUncomplete}
+        />
+      </View>
     );
   };
 
@@ -666,11 +662,21 @@ export function WorkoutBottomSheet() {
         ) : (
           <DraggableFlatList
             data={selectedExercises}
-            onDragEnd={({ data }) => setSelectedExercises(data)}
+            onDragEnd={({ data }) => {
+              setSelectedExercises(data);
+              // Auto-exit reorder mode after drag completes
+              setIsReorderMode(false);
+            }}
+            onDragBegin={() => {
+              // Ensure reorder mode is active when dragging starts
+              setIsReorderMode(true);
+            }}
             keyExtractor={(item, index) => `${item.id}-${index}`}
             renderItem={renderExerciseItem}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            activationDistance={10}
+            dragItemOverflow={true}
             onScrollBeginDrag={(e) => {
               const scrollY = e.nativeEvent.contentOffset.y;
               setShowHeaderTimer(scrollY > 100);
@@ -967,11 +973,25 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
     fontWeight: "500",
   },
+  reorderModeText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
   headerButton: {
     width: 44,
     height: 44,
     justifyContent: "center",
     alignItems: "center",
+  },
+  doneButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  doneButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   finishButton: {
     paddingHorizontal: 24,
@@ -1099,6 +1119,18 @@ const styles = StyleSheet.create({
   exerciseItemWrapper: {
     marginBottom: 12,
   },
+  exerciseItemDragging: {
+    opacity: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    borderRadius: 12,
+  },
   exerciseItemActive: {
     opacity: 0.9,
     shadowColor: "#000",
@@ -1109,6 +1141,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  exerciseNamePressable: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  dragIcon: {
+    marginRight: 4,
+  },
+  exerciseNameInDrag: {
+    fontSize: 18,
+    fontWeight: "700",
+    flex: 1,
   },
   inlineDragHandle: {
     padding: 4,

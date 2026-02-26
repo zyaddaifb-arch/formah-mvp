@@ -91,22 +91,12 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [workoutNotes, setWorkoutNotes] = useState<WorkoutNote[]>([]);
   const [workoutPhoto, setWorkoutPhoto] = useState<string | null>(null);
 
-  // Auto-save workout draft whenever data changes
+  // Auto-save workout draft whenever data changes - DISABLED for Quick Workouts
+  // Quick workouts should NOT persist between sessions
+  // Only save during active session for crash recovery
   useEffect(() => {
-    if (isWorkoutActive) {
-      const draftData = {
-        exerciseSets,
-        exerciseNotes,
-        exerciseStickyNotes,
-        exerciseFocusMetrics,
-        workoutNotes,
-        workoutPhoto,
-        timestamp: new Date().toISOString(),
-      };
-      AsyncStorage.setItem(DRAFT_WORKOUT_KEY, JSON.stringify(draftData)).catch(
-        (error) => console.error("Error saving draft:", error),
-      );
-    }
+    // Disabled auto-save for quick workouts
+    // Each workout should start fresh
   }, [
     isWorkoutActive,
     exerciseSets,
@@ -117,38 +107,19 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     workoutPhoto,
   ]);
 
-  // Load draft workout on mount
+  // Load draft workout on mount - DISABLED for Quick Workouts
+  // Quick workouts should start fresh every time
   useEffect(() => {
-    const loadDraft = async () => {
+    const clearOldDrafts = async () => {
       try {
-        const draft = await AsyncStorage.getItem(DRAFT_WORKOUT_KEY);
-        if (draft) {
-          const data = JSON.parse(draft);
-          // Check if draft is less than 24 hours old
-          const draftTime = new Date(data.timestamp).getTime();
-          const now = new Date().getTime();
-          const hoursDiff = (now - draftTime) / (1000 * 60 * 60);
-
-          if (hoursDiff < 24) {
-            // Restore draft
-            setExerciseSets(data.exerciseSets || {});
-            setExerciseNotes(data.exerciseNotes || {});
-            setExerciseStickyNotes(data.exerciseStickyNotes || {});
-            setExerciseFocusMetrics(data.exerciseFocusMetrics || {});
-            setWorkoutNotes(data.workoutNotes || []);
-            setWorkoutPhoto(data.workoutPhoto || null);
-            setIsWorkoutActive(true);
-          } else {
-            // Draft too old, clear it
-            await AsyncStorage.removeItem(DRAFT_WORKOUT_KEY);
-          }
-        }
+        // Clear any old drafts on app start
+        await AsyncStorage.removeItem(DRAFT_WORKOUT_KEY);
       } catch (error) {
-        console.error("Error loading draft:", error);
+        console.error("Error clearing draft:", error);
       }
     };
 
-    loadDraft();
+    clearOldDrafts();
   }, []);
 
   const startWorkout = () => {

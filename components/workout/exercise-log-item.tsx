@@ -24,14 +24,22 @@ interface ExerciseLogItemProps {
   exercise: Exercise;
   onRemove: () => void;
   onReplace: (oldExercise: Exercise, newExercise: Exercise) => void;
-  dragHandle?: React.ReactNode;
+  onLongPress?: () => void;
+  isReorderMode?: boolean;
+  isActive?: boolean;
+  onSetComplete?: (exerciseId: string, setId: string) => void;
+  onSetUncomplete?: (exerciseId: string, setId: string) => void;
 }
 
 export function ExerciseLogItem({
   exercise,
   onRemove,
   onReplace,
-  dragHandle,
+  onLongPress,
+  isReorderMode = false,
+  isActive = false,
+  onSetComplete,
+  onSetUncomplete,
 }: ExerciseLogItemProps) {
   const {
     exerciseSets,
@@ -140,11 +148,20 @@ export function ExerciseLogItem({
   };
 
   const toggleSetComplete = (setId: string) => {
-    setSets(
-      sets.map((set) =>
-        set.id === setId ? { ...set, completed: !set.completed } : set,
-      ),
+    const updatedSets = sets.map((set) =>
+      set.id === setId ? { ...set, completed: !set.completed } : set,
     );
+    setSets(updatedSets);
+
+    // Notify parent about set completion/uncompletion
+    const toggledSet = updatedSets.find((s) => s.id === setId);
+    if (toggledSet) {
+      if (toggledSet.completed && onSetComplete) {
+        onSetComplete(exercise.id, setId);
+      } else if (!toggledSet.completed && onSetUncomplete) {
+        onSetUncomplete(exercise.id, setId);
+      }
+    }
   };
 
   const updateSet = (
@@ -391,37 +408,68 @@ export function ExerciseLogItem({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Exercise Header */}
-      <View style={styles.header}>
-        <View style={styles.exerciseNameRow}>
-          {dragHandle}
+    <View
+      style={[
+        styles.container,
+        isReorderMode && styles.containerCompact,
+        isActive && styles.containerDragging,
+      ]}
+    >
+      {/* Reorder Mode - Show only drag handle with name */}
+      {isReorderMode ? (
+        <Pressable onLongPress={onLongPress} style={styles.reorderHeader}>
+          <Ionicons
+            name="reorder-three"
+            size={20}
+            color={tintColor}
+            style={styles.dragIcon}
+          />
           <Text style={[styles.exerciseName, { color: tintColor }]}>
             {exercise.name}
           </Text>
-        </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => setShowMetrics(!showMetrics)}
-          >
-            <Ionicons
-              name={showMetrics ? "chevron-up" : "stats-chart"}
-              size={20}
-              color={tintColor}
-            />
-          </Pressable>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => setShowMenu(true)}
-          >
-            <Ionicons name="ellipsis-horizontal" size={20} color={tintColor} />
-          </Pressable>
-        </View>
-      </View>
-
+        </Pressable>
+      ) : (
+        <>
+          {/* Exercise Header */}
+          <View style={styles.header}>
+            <Pressable onLongPress={onLongPress} style={styles.exerciseNameRow}>
+              <Ionicons
+                name="reorder-three"
+                size={20}
+                color={tintColor}
+                style={styles.dragIcon}
+              />
+              <Text style={[styles.exerciseName, { color: tintColor }]}>
+                {exercise.name}
+              </Text>
+            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                style={styles.iconButton}
+                onPress={() => setShowMetrics(!showMetrics)}
+              >
+                <Ionicons
+                  name={showMetrics ? "chevron-up" : "stats-chart"}
+                  size={20}
+                  color={tintColor}
+                />
+              </Pressable>
+              <Pressable
+                style={styles.iconButton}
+                onPress={() => setShowMenu(true)}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={20}
+                  color={tintColor}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </>
+      )}
       {/* Sticky Note - Always at top if exists */}
-      {stickyNote && (
+      {!isReorderMode && stickyNote && (
         <Swipeable
           renderRightActions={renderStickyNoteRightActions}
           overshootRight={false}
@@ -464,9 +512,8 @@ export function ExerciseLogItem({
           )}
         </Swipeable>
       )}
-
       {/* Sticky Note Inline Input - For adding new */}
-      {showStickyNoteInput && !stickyNote && (
+      {!isReorderMode && showStickyNoteInput && !stickyNote && (
         <View
           style={[
             styles.stickyNoteInputContainer,
@@ -487,39 +534,15 @@ export function ExerciseLogItem({
           />
         </View>
       )}
-
       {/* Regular Notes */}
-      {notes.map((note) => (
-        <Swipeable
-          key={note.id}
-          renderRightActions={() => renderNoteRightActions(note.id)}
-          overshootRight={false}
-        >
-          {editingNoteId === note.id ? (
-            <View
-              style={[
-                styles.noteContainer,
-                { backgroundColor: cardBackground, borderColor: "#6b7280" },
-              ]}
-            >
-              <Ionicons name="document-text" size={16} color="#9ca3af" />
-              <TextInput
-                style={[styles.noteText, { color: textColor }]}
-                value={noteText}
-                onChangeText={setNoteText}
-                placeholder="Note"
-                placeholderTextColor="#9ca3af"
-                autoFocus
-                multiline
-                onBlur={() => {
-                  updateExerciseNote(exercise.id, note.id, noteText.trim());
-                  setEditingNoteId(null);
-                  setNoteText("");
-                }}
-              />
-            </View>
-          ) : (
-            <Pressable onPress={() => handleEditNote(note)}>
+      {!isReorderMode &&
+        notes.map((note) => (
+          <Swipeable
+            key={note.id}
+            renderRightActions={() => renderNoteRightActions(note.id)}
+            overshootRight={false}
+          >
+            {editingNoteId === note.id ? (
               <View
                 style={[
                   styles.noteContainer,
@@ -527,17 +550,40 @@ export function ExerciseLogItem({
                 ]}
               >
                 <Ionicons name="document-text" size={16} color="#9ca3af" />
-                <Text style={[styles.noteText, { color: textColor }]}>
-                  {note.text}
-                </Text>
+                <TextInput
+                  style={[styles.noteText, { color: textColor }]}
+                  value={noteText}
+                  onChangeText={setNoteText}
+                  placeholder="Note"
+                  placeholderTextColor="#9ca3af"
+                  autoFocus
+                  multiline
+                  onBlur={() => {
+                    updateExerciseNote(exercise.id, note.id, noteText.trim());
+                    setEditingNoteId(null);
+                    setNoteText("");
+                  }}
+                />
               </View>
-            </Pressable>
-          )}
-        </Swipeable>
-      ))}
-
+            ) : (
+              <Pressable onPress={() => handleEditNote(note)}>
+                <View
+                  style={[
+                    styles.noteContainer,
+                    { backgroundColor: cardBackground, borderColor: "#6b7280" },
+                  ]}
+                >
+                  <Ionicons name="document-text" size={16} color="#9ca3af" />
+                  <Text style={[styles.noteText, { color: textColor }]}>
+                    {note.text}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+          </Swipeable>
+        ))}
       {/* Add Note Inline Input */}
-      {showAddNoteInput && (
+      {!isReorderMode && showAddNoteInput && (
         <View
           style={[
             styles.noteInputContainer,
@@ -558,9 +604,8 @@ export function ExerciseLogItem({
           />
         </View>
       )}
-
       {/* Metrics Section */}
-      {showMetrics && (
+      {!isReorderMode && showMetrics && (
         <View
           style={[styles.metricsSection, { backgroundColor: backgroundColor }]}
         >
@@ -611,118 +656,92 @@ export function ExerciseLogItem({
           </View>
         </View>
       )}
-
       {/* Sets Table Header */}
-      <View style={styles.tableHeader}>
-        <Text
-          style={[
-            styles.tableHeaderText,
-            styles.setNumberHeader,
-            { color: textColor },
-          ]}
-        >
-          Set
-        </Text>
-        <Text
-          style={[
-            styles.tableHeaderText,
-            styles.previousHeader,
-            { color: textColor },
-          ]}
-        >
-          Previous
-        </Text>
-        <Text
-          style={[
-            styles.tableHeaderText,
-            styles.inputHeader,
-            { color: textColor },
-          ]}
-        >
-          {weightUnit === "default" ? "kg" : weightUnit}
-        </Text>
-        <Text
-          style={[
-            styles.tableHeaderText,
-            styles.inputHeader,
-            { color: textColor },
-          ]}
-        >
-          Reps
-        </Text>
-        <View style={styles.checkmarkHeader}>
-          <Ionicons name="checkmark" size={24} color={textColor} />
-        </View>
-      </View>
-
-      {/* Sets List */}
-      {sets.map((set, index) => {
-        // Calculate set number based on warmup status
-        const warmupSets = sets.filter((s) => s.isWarmup);
-        const regularSets = sets.filter((s) => !s.isWarmup);
-        const isWarmup = set.isWarmup;
-
-        let setNumber: string;
-        if (isWarmup) {
-          const warmupIndex = warmupSets.findIndex((s) => s.id === set.id);
-          setNumber = `W${warmupIndex + 1}`;
-        } else {
-          const regularIndex = regularSets.findIndex((s) => s.id === set.id);
-          setNumber = String(regularIndex + 1);
-        }
-
-        return (
-          <Swipeable
-            key={set.id}
-            renderRightActions={() => renderRightActions(set.id)}
-            overshootRight={false}
+      {!isReorderMode && (
+        <View style={styles.tableHeader}>
+          <Text
+            style={[
+              styles.tableHeaderText,
+              styles.setNumberHeader,
+              { color: textColor },
+            ]}
           >
-            <View
-              style={[
-                styles.setRow,
-                isWarmup && {
-                  backgroundColor: "rgba(251, 146, 60, 0.15)",
-                },
-              ]}
+            Set
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderText,
+              styles.previousHeader,
+              { color: textColor },
+            ]}
+          >
+            Previous
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderText,
+              styles.inputHeader,
+              { color: textColor },
+            ]}
+          >
+            {weightUnit === "default" ? "kg" : weightUnit}
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderText,
+              styles.inputHeader,
+              { color: textColor },
+            ]}
+          >
+            Reps
+          </Text>
+          <View style={styles.checkmarkHeader}>
+            <Ionicons name="checkmark" size={24} color={textColor} />
+          </View>
+        </View>
+      )}
+      {/* Sets List */}
+      {!isReorderMode &&
+        sets.map((set, index) => {
+          // Calculate set number based on warmup status
+          const warmupSets = sets.filter((s) => s.isWarmup);
+          const regularSets = sets.filter((s) => !s.isWarmup);
+          const isWarmup = set.isWarmup;
+
+          let setNumber: string;
+          if (isWarmup) {
+            const warmupIndex = warmupSets.findIndex((s) => s.id === set.id);
+            setNumber = `W${warmupIndex + 1}`;
+          } else {
+            const regularIndex = regularSets.findIndex((s) => s.id === set.id);
+            setNumber = String(regularIndex + 1);
+          }
+
+          return (
+            <Swipeable
+              key={set.id}
+              renderRightActions={() => renderRightActions(set.id)}
+              overshootRight={false}
             >
-              <Text
+              <View
                 style={[
-                  styles.setNumber,
-                  { color: isWarmup ? "#fb923c" : textColor },
+                  styles.setRow,
+                  isWarmup && {
+                    backgroundColor: "rgba(251, 146, 60, 0.15)",
+                  },
                 ]}
               >
-                {setNumber}
-              </Text>
+                <Text
+                  style={[
+                    styles.setNumber,
+                    { color: isWarmup ? "#fb923c" : textColor },
+                  ]}
+                >
+                  {setNumber}
+                </Text>
 
-              <Pressable
-                onPress={() => {
-                  // Calculate set index for previous data
-                  const regularSets = sets.filter((s) => !s.isWarmup);
-                  const regularIndex = regularSets.findIndex(
-                    (s) => s.id === set.id,
-                  );
-                  const prevSet = previousSets[regularIndex];
-
-                  // Copy previous values to current set (both weight and reps together)
-                  if (prevSet && (prevSet.weight || prevSet.reps)) {
-                    // Convert weight based on selected unit
-                    let weightValue = prevSet.weight;
-                    if (weightUnit === "lbs") {
-                      // Convert kg to lbs (1 kg = 2.20462 lbs)
-                      weightValue =
-                        Math.round(prevSet.weight * 2.20462 * 10) / 10;
-                    }
-
-                    updateSetBoth(
-                      set.id,
-                      weightValue.toString(),
-                      prevSet.reps.toString(),
-                    );
-                  }
-                }}
-              >
-                <Text style={[styles.previousText, { color: "#6b7280" }]}>
-                  {(() => {
+                <Pressable
+                  onPress={() => {
                     // Calculate set index for previous data
                     const regularSets = sets.filter((s) => !s.isWarmup);
                     const regularIndex = regularSets.findIndex(
@@ -730,99 +749,128 @@ export function ExerciseLogItem({
                     );
                     const prevSet = previousSets[regularIndex];
 
-                    // Only show previous for non-warmup sets
-                    if (set.isWarmup) return "—";
-                    if (!prevSet || (!prevSet.weight && !prevSet.reps))
-                      return "—";
+                    // Copy previous values to current set (both weight and reps together)
+                    if (prevSet && (prevSet.weight || prevSet.reps)) {
+                      // Convert weight based on selected unit
+                      let weightValue = prevSet.weight;
+                      if (weightUnit === "lbs") {
+                        // Convert kg to lbs (1 kg = 2.20462 lbs)
+                        weightValue =
+                          Math.round(prevSet.weight * 2.20462 * 10) / 10;
+                      }
 
-                    // Convert weight based on selected unit for display
-                    let displayWeight = prevSet.weight;
-                    if (weightUnit === "lbs") {
-                      // Convert kg to lbs (1 kg = 2.20462 lbs)
-                      displayWeight =
-                        Math.round(prevSet.weight * 2.20462 * 10) / 10;
+                      updateSetBoth(
+                        set.id,
+                        weightValue.toString(),
+                        prevSet.reps.toString(),
+                      );
                     }
+                  }}
+                >
+                  <Text style={[styles.previousText, { color: "#6b7280" }]}>
+                    {(() => {
+                      // Calculate set index for previous data
+                      const regularSets = sets.filter((s) => !s.isWarmup);
+                      const regularIndex = regularSets.findIndex(
+                        (s) => s.id === set.id,
+                      );
+                      const prevSet = previousSets[regularIndex];
 
-                    return `${displayWeight.toString()} ${weightUnit === "default" ? "kg" : weightUnit} × ${prevSet.reps.toString()}`;
-                  })()}
-                </Text>
-              </Pressable>
+                      // Only show previous for non-warmup sets
+                      if (set.isWarmup) return "—";
+                      if (!prevSet || (!prevSet.weight && !prevSet.reps))
+                        return "—";
 
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: textColor,
-                    backgroundColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.1)"
-                      : cardBackground,
-                    borderWidth: 1,
-                    borderColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.3)"
-                      : "rgba(107, 114, 128, 0.3)",
-                  },
-                ]}
-                value={set.weight}
-                onChangeText={(value) => updateSet(set.id, "weight", value)}
-                keyboardType="numeric"
-                selectTextOnFocus
-                placeholder="0"
-                placeholderTextColor="#6b7280"
-              />
+                      // Convert weight based on selected unit for display
+                      let displayWeight = prevSet.weight;
+                      if (weightUnit === "lbs") {
+                        // Convert kg to lbs (1 kg = 2.20462 lbs)
+                        displayWeight =
+                          Math.round(prevSet.weight * 2.20462 * 10) / 10;
+                      }
 
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: textColor,
-                    backgroundColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.1)"
-                      : cardBackground,
-                    borderWidth: 1,
-                    borderColor: isWarmup
-                      ? "rgba(251, 146, 60, 0.3)"
-                      : "rgba(107, 114, 128, 0.3)",
-                  },
-                ]}
-                value={set.reps}
-                onChangeText={(value) => updateSet(set.id, "reps", value)}
-                keyboardType="numeric"
-                selectTextOnFocus
-                placeholder="0"
-                placeholderTextColor="#6b7280"
-              />
+                      return `${displayWeight.toString()} ${weightUnit === "default" ? "kg" : weightUnit} × ${prevSet.reps.toString()}`;
+                    })()}
+                  </Text>
+                </Pressable>
 
-              <Pressable
-                style={[
-                  styles.checkmark,
-                  set.completed && {
-                    backgroundColor: isWarmup ? "#fb923c" : "#10b981",
-                    borderColor: isWarmup ? "#fb923c" : "#10b981",
-                  },
-                  !set.completed &&
-                    isWarmup && {
-                      borderColor: "#fb923c",
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      color: textColor,
+                      backgroundColor: isWarmup
+                        ? "rgba(251, 146, 60, 0.1)"
+                        : cardBackground,
+                      borderWidth: 1,
+                      borderColor: isWarmup
+                        ? "rgba(251, 146, 60, 0.3)"
+                        : "rgba(107, 114, 128, 0.3)",
                     },
-                ]}
-                onPress={() => toggleSetComplete(set.id)}
-              >
-                {set.completed && (
-                  <Ionicons name="checkmark" size={24} color="#fff" />
-                )}
-              </Pressable>
-            </View>
-          </Swipeable>
-        );
-      })}
+                  ]}
+                  value={set.weight}
+                  onChangeText={(value) => updateSet(set.id, "weight", value)}
+                  keyboardType="numeric"
+                  selectTextOnFocus
+                  placeholder="0"
+                  placeholderTextColor="#6b7280"
+                />
 
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      color: textColor,
+                      backgroundColor: isWarmup
+                        ? "rgba(251, 146, 60, 0.1)"
+                        : cardBackground,
+                      borderWidth: 1,
+                      borderColor: isWarmup
+                        ? "rgba(251, 146, 60, 0.3)"
+                        : "rgba(107, 114, 128, 0.3)",
+                    },
+                  ]}
+                  value={set.reps}
+                  onChangeText={(value) => updateSet(set.id, "reps", value)}
+                  keyboardType="numeric"
+                  selectTextOnFocus
+                  placeholder="0"
+                  placeholderTextColor="#6b7280"
+                />
+
+                <Pressable
+                  style={[
+                    styles.checkmark,
+                    set.completed && {
+                      backgroundColor: isWarmup ? "#fb923c" : "#10b981",
+                      borderColor: isWarmup ? "#fb923c" : "#10b981",
+                    },
+                    !set.completed &&
+                      isWarmup && {
+                        borderColor: "#fb923c",
+                      },
+                  ]}
+                  onPress={() => toggleSetComplete(set.id)}
+                >
+                  {set.completed && (
+                    <Ionicons name="checkmark" size={24} color="#fff" />
+                  )}
+                </Pressable>
+              </View>
+            </Swipeable>
+          );
+        })}
       {/* Add Set Button */}
-      <Pressable
-        style={[styles.addSetButton, { backgroundColor: backgroundColor }]}
-        onPress={addSet}
-      >
-        <Text style={[styles.addSetText, { color: textColor }]}>+ Add Set</Text>
-      </Pressable>
-
+      {!isReorderMode && (
+        <Pressable
+          style={[styles.addSetButton, { backgroundColor: backgroundColor }]}
+          onPress={addSet}
+        >
+          <Text style={[styles.addSetText, { color: textColor }]}>
+            + Add Set
+          </Text>
+        </Pressable>
+      )}
       {/* Exercise Menu Modal */}
       <Modal
         visible={showMenu}
@@ -929,7 +977,6 @@ export function ExerciseLogItem({
           </View>
         </Pressable>
       </Modal>
-
       {/* Replace Exercise Dialog */}
       <ExerciseSelectionDialog
         visible={showReplaceDialog}
@@ -941,7 +988,6 @@ export function ExerciseLogItem({
         }}
         singleSelect={true}
       />
-
       {/* Focus Metric Selector */}
       <FocusMetricSelector
         visible={showFocusMetricSelector}
@@ -950,7 +996,6 @@ export function ExerciseLogItem({
         currentMetric={currentFocusMetric}
         exerciseCategory={exercise.category}
       />
-
       {/* Warm Up Sets Dialog */}
       <Modal
         visible={showWarmupDialog}
@@ -1023,7 +1068,6 @@ export function ExerciseLogItem({
           </View>
         </Pressable>
       </Modal>
-
       {/* Preferences Dialog */}
       <Modal
         visible={showPreferencesDialog}
@@ -1450,6 +1494,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(107, 114, 128, 0.2)",
   },
+  containerCompact: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginHorizontal: 16,
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    borderRadius: 12,
+    borderBottomWidth: 0,
+  },
+  containerDragging: {
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    shadowColor: "#3b82f6",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  reorderHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  dragIcon: {
+    marginRight: 8,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1461,7 +1533,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    gap: 8,
   },
   exerciseName: {
     fontSize: 18,
