@@ -3,18 +3,18 @@ import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { Exercise, FocusMetricType } from "@/types/workout";
 import {
-  calculateFocusMetric,
-  getMetricDisplayName,
+    calculateFocusMetric,
+    getMetricDisplayName,
 } from "@/utils/focus-metrics";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
@@ -120,13 +120,13 @@ export function ExerciseLogItem({
   const backgroundColor = useThemeColor({}, "background");
 
   const addSet = () => {
-    const lastSet = sets[sets.length - 1];
+    const lastSet = sets.length > 0 ? sets[sets.length - 1] : null;
     setSets([
       ...sets,
       {
         id: String(sets.length + 1),
-        weight: lastSet.weight,
-        reps: lastSet.reps,
+        weight: lastSet?.weight || "",
+        reps: lastSet?.reps || "",
         completed: false,
         isWarmup: false,
       },

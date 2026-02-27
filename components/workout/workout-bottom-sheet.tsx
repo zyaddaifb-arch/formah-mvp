@@ -1,6 +1,12 @@
 import { useWorkout } from "@/contexts/workout-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { Exercise } from "@/types/workout";
+import {
+    calculateWorkoutStats,
+    completeUnfinishedSets,
+    discardUnfinishedSets,
+    validateWorkoutSets,
+} from "@/utils/workout-validation";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
@@ -23,6 +29,7 @@ import DraggableFlatList, {
 import { CompactTimer } from "./compact-timer";
 import { ExerciseLogItem } from "./exercise-log-item";
 import { ExerciseSelectionDialog } from "./exercise-selection-dialog";
+import { FinishWorkoutModal } from "./finish-workout-modal";
 import { InlineRestTimer } from "./inline-rest-timer";
 import { RestTimerModal } from "./rest-timer-modal";
 import { WorkoutNoteItem } from "./workout-note-item";
@@ -53,6 +60,8 @@ export function WorkoutBottomSheet() {
     isRunning: boolean;
   } | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [hasValidUnfinishedSets, setHasValidUnfinishedSets] = useState(false);
 
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -166,31 +175,104 @@ export function WorkoutBottomSheet() {
     );
   };
 
-  const handleFinish = async () => {
-    // Save workout to history before finishing
-    // Build workout session data
+  const initiateFinish = () => {
+    // Build workout session data for validation
+    const exercises = selectedExercises.map((exercise) => {
+      const sets = exerciseSets[exercise.id] || [];
+      return {
+        exerciseId: exercise.id,
+        sets: sets
+          .filter((set) => !set.isWarmup)
+          .map((set) => ({
+            reps: parseInt(set.reps) || 0,
+            weight: parseFloat(set.weight) || 0,
+            completed: set.completed,
+          })),
+      };
+    });
+
+    // Validate workout sets
+    const validation = validateWorkoutSets(exercises);
+    setHasValidUnfinishedSets(validation.hasValidUnfinishedSets);
+    setShowFinishModal(true);
+  };
+
+  const handleCompleteUnfinished = async () => {
+    // Build workout session with completed unfinished sets
+    const exercises = selectedExercises.map((exercise) => {
+      const sets = exerciseSets[exercise.id] || [];
+      return {
+        exerciseId: exercise.id,
+        sets: sets
+          .filter((set) => !set.isWarmup)
+          .map((set) => ({
+            reps: parseInt(set.reps) || 0,
+            weight: parseFloat(set.weight) || 0,
+            completed: set.completed,
+          })),
+      };
+    });
+
+    const completedExercises = completeUnfinishedSets(exercises);
+    await saveAndFinishWorkout(completedExercises);
+  };
+
+  const handleDiscardUnfinished = async () => {
+    // Build workout session and discard unfinished sets
+    const exercises = selectedExercises.map((exercise) => {
+      const sets = exerciseSets[exercise.id] || [];
+      return {
+        exerciseId: exercise.id,
+        sets: sets
+          .filter((set) => !set.isWarmup)
+          .map((set) => ({
+            reps: parseInt(set.reps) || 0,
+            weight: parseFloat(set.weight) || 0,
+            completed: set.completed,
+          })),
+      };
+    });
+
+    const cleanedExercises = discardUnfinishedSets(exercises);
+    await saveAndFinishWorkout(cleanedExercises);
+  };
+
+  const handleSimpleFinish = async () => {
+    // Build workout session data normally
+    const exercises = selectedExercises.map((exercise) => {
+      const sets = exerciseSets[exercise.id] || [];
+      return {
+        exerciseId: exercise.id,
+        sets: sets
+          .filter((set) => !set.isWarmup)
+          .map((set) => ({
+            reps: parseInt(set.reps) || 0,
+            weight: parseFloat(set.weight) || 0,
+            completed: set.completed,
+          })),
+      };
+    });
+
+    await saveAndFinishWorkout(exercises);
+  };
+
+  const saveAndFinishWorkout = async (exercises: any[]) => {
     const workoutSession: import("@/types/workout").WorkoutSession = {
       id: Date.now().toString(),
-      templateId: "quick-workout", // TODO: Use actual template ID
+      templateId: "quick-workout",
       date: new Date().toISOString(),
-      exercises: selectedExercises.map((exercise) => {
-        const sets = exerciseSets[exercise.id] || [];
-        return {
-          exerciseId: exercise.id,
-          sets: sets
-            .filter((set) => !set.isWarmup) // Only save non-warmup sets
-            .map((set) => ({
-              reps: parseInt(set.reps) || 0,
-              weight: parseFloat(set.weight) || 0,
-              completed: set.completed,
-            })),
-          focusMetric: exerciseFocusMetrics[exercise.id] as
-            | import("@/types/workout").FocusMetricType
-            | undefined,
-        };
-      }),
+      exercises: exercises.map((exercise) => ({
+        ...exercise,
+        focusMetric: exerciseFocusMetrics[exercise.exerciseId] as
+          | import("@/types/workout").FocusMetricType
+          | undefined,
+      })),
       completedAt: new Date().toISOString(),
     };
+
+    // Calculate stats
+    const stats = calculateWorkoutStats(exercises);
+    console.log("Workout Stats:", stats);
 
     // Save to storage
     try {
@@ -200,7 +282,8 @@ export function WorkoutBottomSheet() {
       console.error("Error saving workout:", error);
     }
 
-    // Reset everything when finishing workout
+    // Close modal and reset
+    setShowFinishModal(false);
     setElapsedTime(0);
     setWorkoutName("Quick Workout");
     setIsEditingName(false);
@@ -209,7 +292,7 @@ export function WorkoutBottomSheet() {
     setShowRestTimer(false);
     setShowAddNoteInput(false);
     setNoteText("");
-    endWorkout(); // This will also clear exerciseSets
+    endWorkout();
   };
 
   const handleMinimize = () => {
@@ -547,7 +630,7 @@ export function WorkoutBottomSheet() {
             )}
 
             <Pressable
-              onPress={handleFinish}
+              onPress={initiateFinish}
               style={[styles.finishButton, { backgroundColor: "#10b981" }]}
             >
               <Text style={styles.finishButtonText}>Finish</Text>
@@ -870,6 +953,15 @@ export function WorkoutBottomSheet() {
         initialRemainingTime={restTimerData?.remainingTime}
         initialTotalDuration={restTimerData?.totalDuration}
         onTimerComplete={handleTimerComplete}
+      />
+
+      <FinishWorkoutModal
+        visible={showFinishModal}
+        hasValidUnfinishedSets={hasValidUnfinishedSets}
+        onCancel={() => setShowFinishModal(false)}
+        onFinish={handleSimpleFinish}
+        onCompleteUnfinished={handleCompleteUnfinished}
+        onDiscardUnfinished={handleDiscardUnfinished}
       />
 
       {/* Workout Menu Modal */}

@@ -53,7 +53,7 @@ export function calculateRepsPerSet(sets: SetData[] | Set[]): number {
   const completedSets = sets.filter((s) => {
     const reps = typeof s.reps === "string" ? parseFloat(s.reps) : s.reps;
     return reps && !isNaN(reps);
-  });
+  }) as typeof sets;
 
   if (completedSets.length === 0) return 0;
 

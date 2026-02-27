@@ -1,20 +1,35 @@
 // Simple test file to verify exports work correctly
 import {
-    calculateFocusMetric,
-    calculateTotalVolume,
-    getMetricDisplayName,
+  calculateFocusMetric,
+  calculateTotalVolume,
+  getMetricDisplayName,
 } from "./focus-metrics";
 
-// This file exists to verify that the exports are working correctly
-// If this file has no TypeScript errors, the exports are correct
+describe("focus-metrics", () => {
+  it("should calculate total volume correctly", () => {
+    const testSets = [
+      { id: "1", weight: "100", reps: "10", completed: true },
+      { id: "2", weight: "100", reps: "8", completed: true },
+    ];
 
-const testSets = [
-  { id: "1", weight: "100", reps: "10", completed: true },
-  { id: "2", weight: "100", reps: "8", completed: true },
-];
+    const volume = calculateTotalVolume(testSets);
+    expect(volume).toBe(1800); // (100 * 10) + (100 * 8)
+  });
 
-const result = calculateFocusMetric("total_volume", testSets);
-const volume = calculateTotalVolume(testSets);
-const name = getMetricDisplayName("total_volume");
+  it("should get metric display name", () => {
+    const name = getMetricDisplayName("total_volume");
+    expect(name).toBe("Total Volume");
+  });
 
-console.log("Test passed:", { result, volume, name });
+  it("should calculate focus metric", () => {
+    const testSets = [
+      { id: "1", weight: "100", reps: "10", completed: true },
+      { id: "2", weight: "100", reps: "8", completed: true },
+    ];
+
+    const result = calculateFocusMetric("total_volume", testSets);
+    expect(result.current).toBe(1800);
+    expect(result.displayValue).toBe("1800 kg");
+  });
+});
+
