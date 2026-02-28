@@ -30,6 +30,14 @@ export function InlineRestTimer({
   const progressAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const isCompletingRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const onSkipRef = useRef(onSkip);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onSkipRef.current = onSkip;
+  }, [onComplete, onSkip]);
 
   const textColor = useThemeColor({}, "text");
   const cardBackground = useThemeColor({}, "cardBackground");
@@ -67,22 +75,18 @@ export function InlineRestTimer({
 
   // Timer countdown
   useEffect(() => {
-    console.log("Timer started, initial time:", remainingTime);
-
     const interval = setInterval(() => {
       setRemainingTime((prev) => {
-        console.log("Timer tick, prev:", prev);
         if (prev <= 1) {
           if (!isCompletingRef.current) {
             isCompletingRef.current = true;
-            console.log("Timer completing");
             // Slide out before completing
             Animated.timing(slideAnim, {
               toValue: SCREEN_HEIGHT,
               duration: 300,
               useNativeDriver: true,
             }).start(() => {
-              onComplete();
+              onCompleteRef.current();
             });
           }
           return 0;
@@ -92,10 +96,9 @@ export function InlineRestTimer({
     }, 1000);
 
     return () => {
-      console.log("Timer cleanup");
       clearInterval(interval);
     };
-  }, []);
+  }, [slideAnim]);
 
   // Update progress animation
   useEffect(() => {
@@ -128,7 +131,7 @@ export function InlineRestTimer({
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      onSkip();
+      onSkipRef.current();
     });
   };
 

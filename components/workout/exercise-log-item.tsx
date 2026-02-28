@@ -90,6 +90,9 @@ export function ExerciseLogItem({
   const [previousWeightUnit, setPreviousWeightUnit] = useState<
     "default" | "kg" | "lbs"
   >("default");
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, { weight?: boolean; reps?: boolean }>
+  >({});
 
   // Convert weights when unit changes
   useEffect(() => {
@@ -147,6 +150,53 @@ export function ExerciseLogItem({
   };
 
   const toggleSetComplete = (setId: string) => {
+    const currentSet = sets.find((s) => s.id === setId);
+    if (!currentSet) return;
+
+    // If trying to complete the set, validate inputs first
+    if (!currentSet.completed) {
+      const hasWeight = currentSet.weight && currentSet.weight.trim() !== "";
+      const hasReps = currentSet.reps && currentSet.reps.trim() !== "";
+
+      // For warmup sets, only reps is required
+      if (currentSet.isWarmup) {
+        if (!hasReps) {
+          // Show validation error
+          setValidationErrors({
+            ...validationErrors,
+            [setId]: { reps: true },
+          });
+          // Clear error after 2 seconds
+          setTimeout(() => {
+            setValidationErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors[setId];
+              return newErrors;
+            });
+          }, 2000);
+          return;
+        }
+      } else {
+        // For regular sets, both weight and reps are required
+        if (!hasWeight || !hasReps) {
+          // Show validation errors
+          setValidationErrors({
+            ...validationErrors,
+            [setId]: { weight: !hasWeight, reps: !hasReps },
+          });
+          // Clear errors after 2 seconds
+          setTimeout(() => {
+            setValidationErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors[setId];
+              return newErrors;
+            });
+          }, 2000);
+          return;
+        }
+      }
+    }
+
     const updatedSets = sets.map((set) =>
       set.id === setId ? { ...set, completed: !set.completed } : set,
     );
@@ -733,6 +783,14 @@ export function ExerciseLogItem({
                   isWarmup && {
                     backgroundColor: "rgba(251, 146, 60, 0.15)",
                   },
+                  set.completed &&
+                    !isWarmup && {
+                      backgroundColor: "rgba(16, 185, 129, 0.1)",
+                    },
+                  set.completed &&
+                    isWarmup && {
+                      backgroundColor: "rgba(251, 146, 60, 0.25)",
+                    },
                 ]}
               >
                 <Text
@@ -806,17 +864,37 @@ export function ExerciseLogItem({
                       backgroundColor: isWarmup
                         ? "rgba(251, 146, 60, 0.1)"
                         : cardBackground,
-                      borderWidth: 1,
-                      borderColor: isWarmup
-                        ? "rgba(251, 146, 60, 0.3)"
-                        : "rgba(107, 114, 128, 0.3)",
+                      borderWidth: 2,
+                      borderColor: validationErrors[set.id]?.weight
+                        ? "#ef4444"
+                        : isWarmup
+                          ? "rgba(251, 146, 60, 0.3)"
+                          : "rgba(107, 114, 128, 0.3)",
                     },
                   ]}
                   value={set.weight}
-                  onChangeText={(value) => updateSet(set.id, "weight", value)}
+                  onChangeText={(value) => {
+                    updateSet(set.id, "weight", value);
+                    // Clear validation error when user starts typing
+                    if (validationErrors[set.id]?.weight) {
+                      setValidationErrors((prev) => {
+                        const newErrors = { ...prev };
+                        if (newErrors[set.id]) {
+                          delete newErrors[set.id].weight;
+                          if (
+                            !newErrors[set.id].weight &&
+                            !newErrors[set.id].reps
+                          ) {
+                            delete newErrors[set.id];
+                          }
+                        }
+                        return newErrors;
+                      });
+                    }
+                  }}
                   keyboardType="numeric"
                   selectTextOnFocus
-                  placeholder="0"
+                  placeholder=""
                   placeholderTextColor="#6b7280"
                 />
 
@@ -828,17 +906,37 @@ export function ExerciseLogItem({
                       backgroundColor: isWarmup
                         ? "rgba(251, 146, 60, 0.1)"
                         : cardBackground,
-                      borderWidth: 1,
-                      borderColor: isWarmup
-                        ? "rgba(251, 146, 60, 0.3)"
-                        : "rgba(107, 114, 128, 0.3)",
+                      borderWidth: 2,
+                      borderColor: validationErrors[set.id]?.reps
+                        ? "#ef4444"
+                        : isWarmup
+                          ? "rgba(251, 146, 60, 0.3)"
+                          : "rgba(107, 114, 128, 0.3)",
                     },
                   ]}
                   value={set.reps}
-                  onChangeText={(value) => updateSet(set.id, "reps", value)}
+                  onChangeText={(value) => {
+                    updateSet(set.id, "reps", value);
+                    // Clear validation error when user starts typing
+                    if (validationErrors[set.id]?.reps) {
+                      setValidationErrors((prev) => {
+                        const newErrors = { ...prev };
+                        if (newErrors[set.id]) {
+                          delete newErrors[set.id].reps;
+                          if (
+                            !newErrors[set.id].weight &&
+                            !newErrors[set.id].reps
+                          ) {
+                            delete newErrors[set.id];
+                          }
+                        }
+                        return newErrors;
+                      });
+                    }
+                  }}
                   keyboardType="numeric"
                   selectTextOnFocus
-                  placeholder="0"
+                  placeholder=""
                   placeholderTextColor="#6b7280"
                 />
 
