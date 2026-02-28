@@ -29,6 +29,7 @@ export function InlineRestTimer({
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const progressAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const isCompletingRef = useRef(false);
 
   const textColor = useThemeColor({}, "text");
   const cardBackground = useThemeColor({}, "cardBackground");
@@ -62,40 +63,46 @@ export function InlineRestTimer({
       tension: 65,
       friction: 11,
     }).start();
-  }, []);
+  }, [slideAnim]);
 
   // Timer countdown
   useEffect(() => {
-    if (remainingTime <= 0) {
-      // Slide out before completing
-      Animated.timing(slideAnim, {
-        toValue: SCREEN_HEIGHT,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        onComplete();
-      });
-      return;
-    }
+    console.log("Timer started, initial time:", remainingTime);
 
     const interval = setInterval(() => {
       setRemainingTime((prev) => {
+        console.log("Timer tick, prev:", prev);
         if (prev <= 1) {
+          if (!isCompletingRef.current) {
+            isCompletingRef.current = true;
+            console.log("Timer completing");
+            // Slide out before completing
+            Animated.timing(slideAnim, {
+              toValue: SCREEN_HEIGHT,
+              duration: 300,
+              useNativeDriver: true,
+            }).start(() => {
+              onComplete();
+            });
+          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [remainingTime, onComplete]);
+    return () => {
+      console.log("Timer cleanup");
+      clearInterval(interval);
+    };
+  }, []);
 
   // Update progress animation
   useEffect(() => {
     if (totalDuration > 0) {
       Animated.timing(progressAnim, {
         toValue: remainingTime / totalDuration,
-        duration: 1000,
+        duration: 0, // Instant update, no animation delay
         useNativeDriver: false,
       }).start();
     }
